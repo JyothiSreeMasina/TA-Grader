@@ -1,0 +1,2242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Systems Grading Bench (standalone)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#F6F4FC;
+    --surface:#FFFFFF;
+    --surface-2:#EEEAFA;
+    --surface-3:#F9F7FD;
+    --border:#DDD5F3;
+    --border-soft:#E9E4F8;
+    --ink:#2A2440;
+    --ink-soft:#655D82;
+    --ink-faint:#9992B3;
+    --accent:#7C5CE0;
+    --accent-ink:#4A2FAE;
+    --accent-soft:#EDE6FD;
+    --accent-hover:#6947CC;
+    --good:#276B3E;
+    --good-soft:#E1F1E6;
+    --good-border:#B7DDC2;
+    --bad:#A8281F;
+    --bad-soft:#FBE8E6;
+    --bad-border:#F0BDB8;
+    --warn:#8A5E00;
+    --warn-soft:#FBEFD2;
+    --warn-border:#E8D090;
+    --shadow-sm: 0 1px 2px rgba(60,40,110,.07);
+    --shadow-md: 0 6px 20px rgba(60,40,110,.10);
+    --radius: 10px;
+    --radius-sm: 7px;
+    --font-display:'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
+    --font-body:'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  /* Deliberately single-theme (white + lavender) regardless of the viewer's
+     OS/browser color-scheme setting, per explicit request — no dark mode. */
+  :root{ color-scheme: light; }
+
+  *{box-sizing:border-box;}
+  [hidden]{display:none !important;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:14px;
+    line-height:1.5;
+    height:100vh;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;}
+  button{font-family:var(--font-body);}
+  textarea,input,select{font-family:inherit;color:inherit;}
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--ink-faint);}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;
+    padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--border);
+    flex:0 0 auto;
+  }
+  .brand{display:flex;align-items:baseline;gap:9px;min-width:0;}
+  .brand-mark{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--accent-ink);background:var(--accent-soft);border-radius:5px;padding:3px 7px;flex:0 0 auto;}
+  .brand h1{font-size:17px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .topbar-right{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;}
+  .save-indicator{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-faint);}
+  .save-dot{width:7px;height:7px;border-radius:50%;background:var(--ink-faint);flex:0 0 auto;}
+  .save-indicator.ok .save-dot{background:var(--good);}
+  .save-indicator.off .save-dot{background:var(--bad);}
+
+  /* ---------- 3-column app grid ---------- */
+  .app-grid{
+    flex:1 1 auto;min-height:0;
+    display:grid;
+    grid-template-columns:296px 1fr 340px;
+    gap:0;
+  }
+  .col{min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+  .col-left{background:var(--surface);border-right:1px solid var(--border);}
+  .col-center{background:var(--bg);}
+  .col-right{background:var(--surface);border-left:1px solid var(--border);}
+  .col-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;}
+
+  /* ---------- generic card ---------- */
+  .side-card{border-bottom:1px solid var(--border-soft);padding:14px 16px;}
+  .side-card:last-child{border-bottom:none;}
+  .side-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;}
+  .side-card-title{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:.03em;}
+  .side-card-num{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--accent);color:#fff;font-family:var(--font-mono);font-size:10px;font-weight:600;flex:0 0 auto;}
+  .side-card-sub{font-size:12px;color:var(--ink-soft);margin:0 0 10px;}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:1px solid var(--border);background:var(--surface);color:var(--ink);
+    border-radius:var(--radius-sm);padding:7px 12px;font-size:12.5px;font-weight:500;
+    cursor:pointer;transition:background .12s,border-color .12s;white-space:nowrap;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent-ink);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-accent{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn-accent:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff;}
+  .btn-quiet{background:transparent;border-color:transparent;color:var(--ink-soft);}
+  .btn-quiet:hover{background:var(--surface-2);color:var(--accent-ink);border-color:transparent;}
+  .btn-block{width:100%;}
+  .btn-sm{padding:5px 9px;font-size:11.5px;}
+  .btn-xs{padding:3px 7px;font-size:11px;border-radius:6px;}
+
+  .upload-btn{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    width:100%;border:1.5px dashed var(--border);border-radius:var(--radius-sm);
+    background:var(--surface-3);padding:14px 10px;cursor:pointer;text-align:center;
+    transition:border-color .12s,background .12s;
+  }
+  .upload-btn:hover,.upload-btn.drag{border-color:var(--accent);background:var(--accent-soft);}
+  .upload-btn input{display:none;}
+  .upload-btn .u-icon{font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--accent-ink);background:var(--accent-soft);border-radius:5px;padding:2px 7px;}
+  .upload-btn .u-title{font-size:12.5px;font-weight:500;color:var(--ink);}
+  .upload-btn .u-sub{font-size:11px;color:var(--ink-faint);}
+
+  .file-meta{
+    margin-top:10px;background:var(--surface-3);border:1px solid var(--border-soft);
+    border-radius:var(--radius-sm);padding:9px 10px;
+  }
+  .file-meta-row{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .file-meta-name{font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:var(--accent-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-meta-stats{font-size:11px;color:var(--ink-soft);margin-top:4px;}
+  .file-meta-actions{display:flex;gap:6px;margin-top:8px;}
+
+  .lab-alt-row{margin-top:10px;}
+  .field-label-sm{display:block;font-size:11px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
+  .lab-url-inputrow{display:flex;gap:6px;}
+  .lab-url-inputrow input{
+    flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:6px 8px;
+    font-size:12px;background:var(--surface);color:var(--ink);
+  }
+  .lab-url-inputrow input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);}
+  .lab-url-status{font-size:11px;line-height:1.4;margin-top:6px;color:var(--ink-faint);}
+  .lab-url-status.err{color:var(--bad);}
+  .lab-url-status.ok{color:var(--good);}
+  #labPasteArea textarea{
+    width:100%;min-height:74px;font-size:11.5px;border:1px solid var(--border);
+    border-radius:6px;padding:6px;resize:vertical;background:var(--surface);color:var(--ink);
+  }
+
+  .thinking{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--accent-ink);}
+  .spinner{width:11px;height:11px;border-radius:50%;border:2px solid var(--accent-soft);border-top-color:var(--accent);animation:spin .7s linear infinite;flex:0 0 auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* rubric compact list (left column) */
+  .rubric-mini-list{max-height:230px;overflow-y:auto;border:1px solid var(--border-soft);border-radius:var(--radius-sm);margin-top:8px;}
+  .rubric-mini-row{display:grid;grid-template-columns:44px 1fr 46px;gap:6px;align-items:start;padding:7px 8px;border-bottom:1px solid var(--border-soft);}
+  .rubric-mini-row:last-child{border-bottom:none;}
+  .rmr-num{font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--accent-ink);}
+  .rmr-num-input{width:38px;border:1px solid var(--border);border-radius:5px;padding:3px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--accent-ink);text-align:center;background:var(--surface);}
+  .rmr-ans{font-size:11.5px;color:var(--ink-soft);}
+  .rmr-ans textarea{width:100%;min-height:32px;border:1px solid var(--border);border-radius:5px;padding:4px 5px;font-size:11.5px;resize:vertical;background:var(--surface);color:var(--ink);}
+  .rmr-pts{font-family:var(--font-mono);font-size:11px;text-align:right;}
+  .rmr-pts input{width:42px;border:1px solid var(--border);border-radius:5px;padding:3px;font-family:var(--font-mono);font-size:11px;text-align:center;background:var(--surface);color:var(--ink);}
+  .rubric-total-row{display:flex;align-items:center;justify-content:space-between;margin-top:9px;font-size:12px;}
+  .rubric-total-row b{font-family:var(--font-mono);color:var(--accent-ink);}
+  .target-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;font-size:12px;gap:8px;}
+  .target-row input{width:64px;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-family:var(--font-mono);font-weight:600;text-align:center;background:var(--surface);}
+
+  /* search + tree */
+  .tree-search{width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 9px;font-size:12.5px;background:var(--surface);margin-bottom:8px;}
+  .tree-search:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);}
+  .file-tree{border:1px solid var(--border-soft);border-radius:var(--radius-sm);max-height:340px;overflow-y:auto;background:var(--surface-3);}
+  .tree-node{}
+  .tree-folder-row{display:flex;align-items:center;gap:5px;padding:6px 8px;font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;user-select:none;}
+  .tree-folder-row:hover{background:var(--surface-2);}
+  .tree-folder-caret{font-family:var(--font-mono);font-size:9px;color:var(--ink-faint);transition:transform .1s;flex:0 0 auto;}
+  .tree-folder-row.collapsed .tree-folder-caret{transform:rotate(-90deg);}
+  .tree-children{padding-left:14px;}
+  .tree-children.collapsed{display:none;}
+  .tree-file-row{
+    display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:11.5px;cursor:pointer;
+    border-left:2px solid transparent;color:var(--ink);
+  }
+  .tree-file-row:hover{background:var(--accent-soft);}
+  .tree-file-row.active{background:var(--accent-soft);border-left-color:var(--accent);color:var(--accent-ink);font-weight:600;}
+  .tree-file-row.has-error{color:var(--bad);}
+  .tree-file-icon{font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--ink-faint);background:var(--surface-2);border-radius:4px;padding:1px 4px;flex:0 0 auto;}
+  .tree-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;}
+  .tree-file-status{font-size:9px;flex:0 0 auto;}
+  .tree-empty{padding:16px 10px;font-size:12px;color:var(--ink-faint);text-align:center;}
+  .tree-fix-row{padding:7px 8px 9px 26px;background:var(--bad-soft);border-left:2px solid var(--bad);}
+  .tree-fix-row textarea{width:100%;min-height:56px;font-size:11.5px;border:1px solid var(--bad-border);border-radius:6px;padding:6px;background:var(--surface);color:var(--ink);}
+  .tree-fix-note{font-size:11px;color:var(--bad);margin-bottom:5px;}
+  .tree-fix-actions{display:flex;gap:6px;margin-top:6px;}
+
+  /* ---------- center column ---------- */
+  .center-header{
+    flex:0 0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:12px 18px;background:var(--surface);border-bottom:1px solid var(--border);
+  }
+  .search-field{position:relative;flex:0 1 220px;min-width:150px;}
+  .search-field input{
+    width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);
+    padding:8px 10px 8px 30px;font-size:13px;background:var(--surface-3);
+  }
+  .search-field input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);background:var(--surface);}
+  .search-field .s-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--ink-faint);pointer-events:none;}
+  .student-select{
+    flex:1 1 260px;min-width:180px;border:1px solid var(--border);border-radius:var(--radius-sm);
+    padding:8px 10px;font-size:13px;background:var(--surface);color:var(--ink);
+  }
+  .student-select:disabled{color:var(--ink-faint);}
+  .roster-count{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint);font-weight:400;}
+  .nav-btns{display:flex;gap:5px;flex:0 0 auto;}
+  .status-pill{margin-left:auto;flex:0 0 auto;}
+
+  .viewers{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:1px;background:var(--border);}
+  .viewer-pane{flex:1 1 50%;min-height:0;display:flex;flex-direction:column;background:var(--bg);}
+  .viewer-head{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border-soft);
+  }
+  .viewer-head-label{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--ink);}
+  .viewer-tag{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--accent-ink);background:var(--accent-soft);border-radius:4px;padding:2px 6px;}
+  .viewer-filename{font-size:11px;color:var(--ink-faint);font-family:var(--font-mono);}
+  .viewer-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;align-items:center;}
+  .doc-page-wrap{width:100%;max-width:760px;display:flex;flex-direction:column;gap:10px;}
+  .doc-canvas-page{width:100%;box-shadow:var(--shadow-md);border-radius:4px;display:block;background:#fff;}
+  .docx-render{
+    width:100%;background:#fff;border:1px solid var(--border-soft);border-radius:6px;box-shadow:var(--shadow-md);
+    padding:34px 42px;font-size:13.5px;line-height:1.65;color:#1c1c1c;
+  }
+  .docx-render p{margin:0 0 .8em;}
+  .docx-render table{border-collapse:collapse;margin:.6em 0;}
+  .docx-render td,.docx-render th{border:1px solid #ccc;padding:4px 8px;font-size:12.5px;}
+  .txt-render{
+    width:100%;background:#fff;border:1px solid var(--border-soft);border-radius:6px;box-shadow:var(--shadow-md);
+    padding:26px 32px;font-family:var(--font-mono);font-size:12.5px;white-space:pre-wrap;word-break:break-word;color:#1c1c1c;
+  }
+  .viewer-empty{
+    flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    color:var(--ink-faint);font-size:12.5px;text-align:center;padding:20px;
+  }
+  .viewer-empty .ve-big{font-family:var(--font-mono);font-size:22px;color:var(--border);}
+  .reupload-inline{margin-top:6px;}
+
+  /* ---------- right column ---------- */
+  .right-section{border-bottom:1px solid var(--border-soft);padding:14px 16px;}
+  .right-section:last-child{border-bottom:none;}
+  .right-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}
+  .right-section-title{font-size:12.5px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:.03em;}
+
+  .compare-group{margin-bottom:12px;}
+  .compare-group:last-child{margin-bottom:0;}
+  .compare-group-head{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;margin-bottom:6px;padding:3px 0;}
+  .cg-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
+  .cg-met .cg-dot{background:var(--good);} .cg-met .compare-group-head{color:var(--good);}
+  .cg-mismatch .cg-dot{background:var(--warn);} .cg-mismatch .compare-group-head{color:var(--warn);}
+  .cg-missing .cg-dot{background:var(--bad);} .cg-missing .compare-group-head{color:var(--bad);}
+  .cg-count{font-family:var(--font-mono);color:var(--ink-faint);font-weight:400;}
+
+  .compare-card{
+    border-radius:var(--radius-sm);padding:8px 9px;margin-bottom:6px;font-size:12px;
+  }
+  .compare-card:last-child{margin-bottom:0;}
+  .cg-met .compare-card{background:var(--good-soft);border:1px solid var(--good-border);}
+  .cg-mismatch .compare-card{background:var(--warn-soft);border:1px solid var(--warn-border);}
+  .cg-missing .compare-card{background:var(--bad-soft);border:1px solid var(--bad-border);}
+  .cc-head{display:flex;align-items:center;justify-content:space-between;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:11.5px;margin-bottom:3px;}
+  .cc-note{font-size:11.5px;color:var(--ink);line-height:1.45;}
+  .cc-correct{font-size:11px;color:var(--ink-soft);margin-top:3px;font-style:italic;}
+  .cc-controls{display:flex;align-items:center;gap:6px;margin-top:6px;}
+  .cc-controls select{font-size:11px;border:1px solid var(--border);border-radius:5px;padding:2px 4px;background:var(--surface);}
+  .cc-controls input[type=number]{width:44px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:2px 4px;background:var(--surface);text-align:center;}
+  .cc-controls label{font-size:10.5px;color:var(--ink-faint);}
+  .empty-note{font-size:12px;color:var(--ink-faint);text-align:center;padding:14px 6px;}
+
+  .score-box{background:var(--accent-soft);border-radius:var(--radius-sm);padding:12px;text-align:center;}
+  .score-big{font-family:var(--font-display);font-size:32px;font-weight:600;color:var(--accent-ink);line-height:1.1;}
+  .score-sub{font-size:11.5px;color:var(--ink-soft);margin-top:3px;}
+  .score-formula{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);margin-top:6px;}
+  .grade-target-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;}
+  .grade-target-row input{width:64px;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-family:var(--font-mono);font-weight:600;text-align:center;background:var(--surface);}
+
+  .status-pill{
+    display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+    border-radius:999px;padding:3px 9px;background:var(--surface-2);color:var(--ink-soft);
+  }
+  .status-pill.st-graded{background:var(--good-soft);color:var(--good);}
+  .status-pill.st-inprogress{background:var(--warn-soft);color:var(--warn);}
+  .status-pill.st-aidrafted{background:var(--accent-soft);color:var(--accent-ink);}
+
+  .comment-box{width:100%;min-height:150px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:var(--font-mono);font-size:12px;line-height:1.5;resize:vertical;background:var(--surface);color:var(--ink);}
+  .comment-box:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);}
+  .comment-actions{display:flex;gap:6px;margin-top:8px;}
+
+  .empty-state-card{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:12.5px;}
+  .empty-state-card .es-icon{font-family:var(--font-mono);font-size:24px;color:var(--border);margin-bottom:8px;}
+
+  .toast-layer{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:999;max-width:340px;}
+  .toast{background:var(--ink);color:#fff;font-size:12.5px;padding:9px 13px;border-radius:8px;box-shadow:var(--shadow-md);opacity:.97;}
+  .toast.ok{background:#1F5C36;}
+  .toast.err{background:#7A211A;}
+
+  /* in-page confirm dialog — never rely on window.confirm/alert, which are
+     silently no-ops inside a sandboxed iframe without allow-modals. */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(42,36,64,.45);z-index:1000;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-card{
+    background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-md);
+    padding:20px 22px;max-width:400px;width:100%;
+  }
+  .modal-title{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px;}
+  .modal-message{font-size:13px;color:var(--ink-soft);line-height:1.5;margin:0;white-space:pre-line;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+  .btn-danger{background:var(--bad);border-color:var(--bad);color:#fff;}
+  .btn-danger:hover{background:#8C221B;border-color:#8C221B;color:#fff;}
+
+  /* responsive: stack columns on narrow screens */
+  @media (max-width: 900px){
+    .app-grid{grid-template-columns:1fr;grid-template-rows:auto auto auto;overflow-y:auto;}
+    body{overflow-y:auto;height:auto;min-height:100vh;}
+    .col{overflow:visible;}
+    .col-left,.col-right{border:none;border-bottom:1px solid var(--border);}
+    .col-scroll{overflow:visible;}
+    .viewers{min-height:600px;}
+  }
+
+  /* ---------- settings panel (standalone-only: API key + local storage) ---------- */
+  .settings-panel{
+    background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;
+    display:flex;flex-direction:column;gap:12px;flex:0 0 auto;
+  }
+  .settings-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .settings-head h2{font-size:14.5px;}
+  .settings-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:22px;}
+  .settings-field label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:6px;}
+  .settings-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .settings-row input[type="password"]{
+    flex:1;min-width:160px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:6px;
+    padding:7px 9px;font-size:12.5px;background:var(--surface);color:var(--ink);
+  }
+  .settings-row select{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12.5px;background:var(--surface);color:var(--ink);}
+  .settings-warning{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:8px 10px;font-size:11.5px;line-height:1.5;margin-top:8px;}
+  .settings-hint{font-size:11.5px;color:var(--ink-soft);margin:0 0 8px;}
+  @media (max-width: 760px){ .settings-grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-mark">GRADING</span>
+    <h1>Systems Grading Bench</h1>
+  </div>
+  <div class="topbar-right">
+    <div class="save-indicator" id="saveIndicator"><span class="save-dot"></span><span id="saveIndicatorText">Starting…</span></div>
+    <button class="btn btn-sm" id="settingsToggleBtn">Settings</button>
+    <button class="btn btn-sm" id="newAssignmentBtn" title="Clear the lab document, rubric, and all submissions to start grading a new assignment">↺ Start new assignment</button>
+  </div>
+</div>
+
+<div class="settings-panel" id="settingsPanel" hidden>
+  <div class="settings-head">
+    <h2>AI &amp; storage settings</h2>
+    <button class="btn btn-quiet btn-xs" id="settingsCloseBtn">Close</button>
+  </div>
+  <p class="settings-hint">This standalone file has no built-in AI or cloud save — everything runs in this browser. Grading progress and files are saved to this device automatically (via IndexedDB); AI suggestions need your own Anthropic API key below.</p>
+  <div class="settings-grid">
+    <div class="settings-field">
+      <label for="apiKeyInput">Anthropic API key (optional — enables AI suggestions)</label>
+      <div class="settings-row">
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+        <button class="btn btn-xs" id="toggleKeyVisibilityBtn" type="button">Show</button>
+      </div>
+      <div class="settings-row" style="margin-top:8px;">
+        <label for="modelSelect" style="margin:0;font-size:11.5px;color:var(--ink-soft);">Model</label>
+        <select id="modelSelect">
+          <option value="claude-sonnet-5">Claude Sonnet 5 (balanced, recommended)</option>
+          <option value="claude-opus-5">Claude Opus 5 (most capable, slower/pricier)</option>
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (fastest, cheapest)</option>
+        </select>
+      </div>
+      <div class="settings-row" style="margin-top:10px;">
+        <button class="btn btn-xs btn-accent" id="saveApiKeyBtn">Save</button>
+        <button class="btn btn-xs btn-quiet" id="clearApiKeyBtn">Clear key</button>
+        <span class="settings-hint" id="apiKeyStatus" style="margin:0;"></span>
+      </div>
+      <p class="settings-warning">Your key is stored only in this browser (localStorage) and sent directly to Anthropic's API — never anywhere else — when you use AI suggestions. Don't enter it on a shared or public computer; anyone with access to this browser's dev tools could read it.</p>
+    </div>
+    <div class="settings-field">
+      <label>Local storage</label>
+      <p class="settings-hint">The lab document, rubric, every submission's file, extracted text, and grading progress are all saved to this browser automatically. They stay on this device only — clearing your browser data or switching computers loses them.</p>
+      <button class="btn btn-xs btn-danger" id="resetAllBtn">Erase all saved data on this device</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-grid">
+
+  <!-- ============ LEFT: FILE MANAGEMENT ============ -->
+  <aside class="col col-left">
+    <div class="col-scroll">
+
+      <!-- Import 1: Lab document -->
+      <div class="side-card">
+        <div class="side-card-head">
+          <span class="side-card-title"><span class="side-card-num">1</span>Lab document</span>
+        </div>
+        <p class="side-card-sub">The assignment/lab instructions, for AI context.</p>
+        <div id="labUploadArea">
+          <label class="upload-btn" id="labDropzone">
+            <span class="u-icon">FILE</span>
+            <span class="u-title">Upload lab document</span>
+            <span class="u-sub">.pdf, .docx, or .txt</span>
+            <input type="file" id="labFileInput" accept=".pdf,.docx,.doc,.txt">
+          </label>
+
+          <div class="lab-alt-row">
+            <label class="field-label-sm">Or load from a link</label>
+            <div class="lab-url-inputrow">
+              <input type="url" id="labUrlInput" placeholder="https://…" autocomplete="off">
+              <button class="btn btn-sm" id="labUrlFetchBtn">Fetch</button>
+            </div>
+            <div class="lab-url-status" id="labUrlStatus" hidden></div>
+            <button class="btn btn-quiet btn-xs" id="labPasteToggleBtn" style="margin-top:6px;">Or paste the text directly</button>
+            <div id="labPasteArea" hidden style="margin-top:6px;">
+              <textarea id="labPasteText" placeholder="Paste the lab document's text here"></textarea>
+              <button class="btn btn-xs btn-accent" id="labPasteSaveBtn" style="margin-top:5px;">Use this text</button>
+            </div>
+          </div>
+        </div>
+        <div id="labMeta" class="file-meta" hidden>
+          <div class="file-meta-row">
+            <span class="file-meta-name" id="labFileName"></span>
+          </div>
+          <div class="file-meta-stats" id="labFileStats"></div>
+          <div class="file-meta-actions">
+            <button class="btn btn-quiet btn-xs" id="labReuploadBtn">Replace</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import 2: Rubric -->
+      <div class="side-card">
+        <div class="side-card-head">
+          <span class="side-card-title"><span class="side-card-num">2</span>Rubric</span>
+          <span class="thinking" id="rubricThinking" hidden><span class="spinner"></span>Reading…</span>
+        </div>
+        <p class="side-card-sub">Defines every question's points and correct answer.</p>
+        <div id="rubricUploadArea">
+          <label class="upload-btn" id="rubricDropzone">
+            <span class="u-icon">PDF</span>
+            <span class="u-title">Upload rubric</span>
+            <span class="u-sub">.pdf, .docx, or .txt</span>
+            <input type="file" id="rubricFileInput" accept=".pdf,.docx,.doc,.txt">
+          </label>
+        </div>
+        <div id="rubricMeta" hidden>
+          <div class="file-meta">
+            <div class="file-meta-row">
+              <span class="file-meta-name" id="rubricFileName"></span>
+            </div>
+            <div class="file-meta-actions">
+              <button class="btn btn-quiet btn-xs" id="rubricReextractBtn">Re-extract w/ AI</button>
+              <button class="btn btn-quiet btn-xs" id="rubricReuploadBtn">Replace</button>
+            </div>
+          </div>
+          <div class="rubric-mini-list" id="rubricMiniList"></div>
+          <button class="btn btn-xs" id="rubricAddRowBtn" style="margin-top:7px;">+ Add question</button>
+          <div class="rubric-total-row"><span>Rubric total</span><b id="rubricTotalValue">0 pts</b></div>
+          <div class="target-row">
+            <span>Grade out of</span>
+            <input type="number" id="targetTotalInput" min="1" step="1" value="100">
+          </div>
+        </div>
+      </div>
+
+      <!-- Import 3: Submissions -->
+      <div class="side-card">
+        <div class="side-card-head">
+          <span class="side-card-title"><span class="side-card-num">3</span>Submissions</span>
+          <span class="roster-count" id="submissionCount"></span>
+        </div>
+        <p class="side-card-sub">A .zip of the whole class, or individual files.</p>
+        <div style="display:flex;gap:7px;">
+          <label class="upload-btn" id="zipDropzone" style="flex:1;">
+            <span class="u-icon">ZIP</span>
+            <span class="u-title">Upload .zip</span>
+            <span class="u-sub">whole class</span>
+            <input type="file" id="zipFileInput" accept=".zip">
+          </label>
+          <label class="upload-btn" id="filesDropzone" style="flex:1;">
+            <span class="u-icon">DOC</span>
+            <span class="u-title">Add files</span>
+            <span class="u-sub">one by one</span>
+            <input type="file" id="filesInput" accept=".doc,.docx,.pdf,.txt" multiple>
+          </label>
+        </div>
+
+        <div id="treeArea" hidden style="margin-top:10px;">
+          <input type="search" class="tree-search" id="treeSearchInput" placeholder="Search submissions…" autocomplete="off">
+          <div class="file-tree" id="fileTree"></div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ============ CENTER: DOCUMENT VIEWER ============ -->
+  <main class="col col-center">
+    <div class="center-header">
+      <div class="search-field">
+        <span class="s-icon">⌕</span>
+        <input type="search" id="rosterSearchInput" placeholder="Search students…" autocomplete="off">
+      </div>
+      <select class="student-select" id="studentSelect"><option>No students imported yet</option></select>
+      <div class="nav-btns">
+        <button class="btn btn-sm" id="prevStudentBtn">←</button>
+        <button class="btn btn-sm" id="nextStudentBtn">→</button>
+      </div>
+      <span class="status-pill" id="studentStatusPill" hidden></span>
+    </div>
+
+    <div class="viewers">
+      <section class="viewer-pane">
+        <div class="viewer-head">
+          <span class="viewer-head-label"><span class="viewer-tag">Student</span><span id="studentPanelName">No student selected</span></span>
+          <span class="viewer-filename" id="studentPanelFile"></span>
+        </div>
+        <div class="viewer-body" id="studentViewerBody">
+          <div class="viewer-empty"><span class="ve-big">☰</span>Pick a student to view their submission.</div>
+        </div>
+      </section>
+      <section class="viewer-pane">
+        <div class="viewer-head">
+          <span class="viewer-head-label"><span class="viewer-tag">Rubric</span><span>Answer key</span></span>
+          <span class="viewer-filename" id="rubricPanelFile"></span>
+        </div>
+        <div class="viewer-body" id="rubricViewerBody">
+          <div class="viewer-empty"><span class="ve-big">☰</span>Upload a rubric to see it here.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============ RIGHT: AI EVALUATION & GRADING ============ -->
+  <aside class="col col-right">
+    <div class="col-scroll" id="rightColumnScroll">
+
+      <div class="right-section">
+        <div class="right-section-head">
+          <span class="right-section-title">AI comparison</span>
+          <button class="btn btn-accent btn-xs" id="aiCompareBtn">Run comparison</button>
+        </div>
+        <span class="thinking" id="aiThinking" hidden><span class="spinner"></span>Comparing against rubric &amp; lab doc…<a href="#" id="aiCancelBtn" style="margin-left:6px;color:inherit;">Cancel</a></span>
+        <div id="comparisonArea"><div class="empty-note">Select a student and run the comparison to see results here.</div></div>
+      </div>
+
+      <div class="right-section">
+        <div class="right-section-head"><span class="right-section-title">Grade</span></div>
+        <div class="score-box">
+          <div class="score-big" id="scaledScoreValue">— / 100</div>
+          <div class="score-sub" id="rawScoreValue">raw — / —</div>
+          <div class="score-formula" id="summaryFormulaNote"></div>
+        </div>
+        <button class="btn btn-block btn-sm" id="markGradedBtn" style="margin-top:10px;">Mark as graded</button>
+      </div>
+
+      <div class="right-section">
+        <div class="right-section-head">
+          <span class="right-section-title">Comments</span>
+          <button class="btn btn-quiet btn-xs" id="regenerateCommentBtn">Regenerate</button>
+        </div>
+        <textarea class="comment-box" id="finalCommentBox" placeholder="Feedback for this student…"></textarea>
+        <div class="comment-actions">
+          <button class="btn btn-sm" id="copyCommentBtn">Copy comment</button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+</div>
+
+<div class="toast-layer" id="toastLayer"></div>
+
+<div class="modal-overlay" id="confirmOverlay" hidden>
+  <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h3 id="confirmTitle" class="modal-title"></h3>
+    <p class="modal-message" id="confirmMessage"></p>
+    <div class="modal-actions">
+      <button class="btn btn-sm" id="confirmCancelBtn">Cancel</button>
+      <button class="btn btn-sm btn-danger" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============================== utilities ============================== */
+  function escapeHtml(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function slugify(s, fallback){
+    var out = String(s || "").toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return out || (fallback || ("student-" + Math.random().toString(36).slice(2, 8)));
+  }
+  function hashStr(s){
+    var h = 5381;
+    s = String(s || "");
+    for(var i = 0; i < s.length; i++){ h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; }
+    return h.toString(36);
+  }
+  // Database doc ids are capped at 200 bytes per path segment. Zips exported from an LMS
+  // often have long nested folder names + long filenames, which can blow past that limit
+  // and (if unguarded) abort the *entire* zip import on one oversized name. Truncate long
+  // slugs and append a short hash of the original string so ids stay unique after cutting.
+  function safeDocId(s, fallback){
+    var slug = slugify(s, fallback);
+    var MAX = 150;
+    if(slug.length <= MAX) return slug;
+    var suffix = "-" + hashStr(s);
+    return slug.slice(0, Math.max(1, MAX - suffix.length)) + suffix;
+  }
+  function nameFromFilename(fn){
+    var base = String(fn || "").replace(/\.[^/.]+$/, "");
+    base = base.split("/").pop();
+    base = base.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+    base = base.replace(/\b(hw\d*|homework\d*|assignment\d*|assn\d*|lab\d*|submission\d*|final|copy)\b/gi, "").replace(/\s+/g, " ").trim();
+    if(!base) base = fn;
+    return base.replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  }
+  function nowISO(){ return new Date().toISOString(); }
+  function fmtNum(n){
+    n = Number(n) || 0;
+    var r = Math.round(n * 10) / 10;
+    return (Number.isInteger(r) ? r.toFixed(0) : r.toFixed(1));
+  }
+  function clamp(n, lo, hi){ return Math.max(lo, Math.min(hi, n)); }
+  function uid(){ return Math.random().toString(36).slice(2, 10); }
+  function fileExt(name){ var m = /\.([a-z0-9]+)$/i.exec(String(name || "")); return m ? m[1].toLowerCase() : ""; }
+
+  function showToast(msg, kind){
+    var layer = document.getElementById("toastLayer");
+    var el = document.createElement("div");
+    el.className = "toast" + (kind ? " " + kind : "");
+    el.textContent = msg;
+    layer.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 4200);
+  }
+
+  // Custom in-page confirm dialog. Deliberately NOT window.confirm(): published
+  // Artifact pages run in a sandboxed iframe without `allow-modals`, where
+  // window.confirm/alert/prompt are silently suppressed (return false instantly,
+  // no dialog, no error) — a native confirm() there makes any gated action look
+  // like it "does nothing" when clicked. This renders our own dialog instead.
+  function showConfirmDialog(opts){
+    return new Promise(function(resolve){
+      var overlay = document.getElementById("confirmOverlay");
+      document.getElementById("confirmTitle").textContent = opts.title || "Are you sure?";
+      document.getElementById("confirmMessage").textContent = opts.message || "";
+      var okBtn = document.getElementById("confirmOkBtn");
+      okBtn.textContent = opts.confirmLabel || "Confirm";
+      okBtn.className = "btn btn-sm" + (opts.danger === false ? "" : " btn-danger");
+      overlay.hidden = false;
+
+      function cleanup(result){
+        overlay.hidden = true;
+        okBtn.removeEventListener("click", onOk);
+        cancelBtn.removeEventListener("click", onCancel);
+        overlay.removeEventListener("click", onOverlayClick);
+        document.removeEventListener("keydown", onKeydown);
+        resolve(result);
+      }
+      function onOk(){ cleanup(true); }
+      function onCancel(){ cleanup(false); }
+      function onOverlayClick(ev){ if(ev.target === overlay) cleanup(false); }
+      function onKeydown(ev){ if(ev.key === "Escape") cleanup(false); }
+
+      var cancelBtn = document.getElementById("confirmCancelBtn");
+      okBtn.addEventListener("click", onOk);
+      cancelBtn.addEventListener("click", onCancel);
+      overlay.addEventListener("click", onOverlayClick);
+      document.addEventListener("keydown", onKeydown);
+      okBtn.focus();
+    });
+  }
+
+  /* ============================== state ============================== */
+  var state = {
+    storageOk: false, // whether IndexedDB is usable on this device
+    sample: null,     // {json: fn} once an API key is configured, else null
+    settings: { apiKey: "", model: "claude-sonnet-5" },
+    lab: { loaded:false, sourceName:"", kind:null, rawText:"", arrayBuffer:null, pageCount:0 },
+    rubric: {
+      loaded:false, locked:false, sourceName:"", kind:null, rawText:"",
+      arrayBuffer:null, totalPoints:0, targetTotal:100, questions:[]
+    },
+    students: [], // {id, name, sourceFileName, kind, rawText, arrayBuffer(mem-only), parseError, perQuestion, finalComment, gradedAt, importedAt}
+    tree: { type:"folder", name:"", children:[] }, // directory tree of submissions
+    currentStudentId: null,
+    currentAiAbort: null,
+    rosterFilter: "",
+    treeFilter: ""
+  };
+
+  function lastNameKey(name){
+    var parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    return (parts.length ? parts[parts.length - 1] : "").toLowerCase();
+  }
+  function sortStudents(){
+    state.students.sort(function(a, b){
+      var ka = lastNameKey(a.name), kb = lastNameKey(b.name);
+      if(ka !== kb) return ka.localeCompare(kb);
+      return a.name.localeCompare(b.name);
+    });
+  }
+  function rubricTotalFromRows(){
+    return state.rubric.questions.reduce(function(sum, q){ return sum + (Number(q.maxPoints) || 0); }, 0);
+  }
+  function rubricTotal(){ return rubricTotalFromRows() || state.rubric.totalPoints || 0; }
+  function currentStudent(){
+    return state.students.find(function(s){ return s.id === state.currentStudentId; }) || null;
+  }
+
+  /* ============================== persistence (browser IndexedDB) ============================== */
+  // Standalone replacement for the hosted tool's `db`/`assets` capabilities. IndexedDB stores
+  // Blobs natively (via structured clone), so — unlike the hosted version — there's no accepted-
+  // type restriction and no docx→HTML workaround needed: every file type round-trips as-is.
+  function setSaveIndicator(mode, text){
+    var el = document.getElementById("saveIndicator");
+    el.classList.remove("ok", "off");
+    if(mode) el.classList.add(mode);
+    document.getElementById("saveIndicatorText").textContent = text;
+  }
+
+  var IDB_NAME = "gradingBenchDB";
+  var IDB_VERSION = 1;
+  var idbPromise = null;
+  function openIdb(){
+    if(idbPromise) return idbPromise;
+    idbPromise = new Promise(function(resolve, reject){
+      if(!window.indexedDB){ reject(new Error("IndexedDB not available")); return; }
+      var req = window.indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onupgradeneeded = function(ev){
+        var idb = ev.target.result;
+        if(!idb.objectStoreNames.contains("config")) idb.createObjectStore("config", { keyPath: "key" });
+        if(!idb.objectStoreNames.contains("students")) idb.createObjectStore("students", { keyPath: "id" });
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error || new Error("IndexedDB open failed")); };
+    });
+    return idbPromise;
+  }
+  function idbPut(storeName, value){
+    return openIdb().then(function(idb){
+      return new Promise(function(resolve, reject){
+        var tx = idb.transaction(storeName, "readwrite");
+        tx.objectStore(storeName).put(value);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+  function idbGet(storeName, key){
+    return openIdb().then(function(idb){
+      return new Promise(function(resolve, reject){
+        var tx = idb.transaction(storeName, "readonly");
+        var req = tx.objectStore(storeName).get(key);
+        req.onsuccess = function(){ resolve(req.result || null); };
+        req.onerror = function(){ reject(req.error); };
+      });
+    });
+  }
+  function idbGetAll(storeName){
+    return openIdb().then(function(idb){
+      return new Promise(function(resolve, reject){
+        var tx = idb.transaction(storeName, "readonly");
+        var req = tx.objectStore(storeName).getAll();
+        req.onsuccess = function(){ resolve(req.result || []); };
+        req.onerror = function(){ reject(req.error); };
+      });
+    });
+  }
+  function idbDelete(storeName, key){
+    return openIdb().then(function(idb){
+      return new Promise(function(resolve, reject){
+        var tx = idb.transaction(storeName, "readwrite");
+        tx.objectStore(storeName).delete(key);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+  function idbClear(storeName){
+    return openIdb().then(function(idb){
+      return new Promise(function(resolve, reject){
+        var tx = idb.transaction(storeName, "readwrite");
+        tx.objectStore(storeName).clear();
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+
+  function persistLab(){
+    if(!state.storageOk) return;
+    idbPut("config", {
+      key: "lab",
+      sourceName: state.lab.sourceName, kind: state.lab.kind,
+      rawText: state.lab.rawText, pageCount: state.lab.pageCount,
+      loaded: state.lab.loaded, updatedAt: nowISO()
+    }).catch(function(e){ showToast("Couldn't save lab document (" + (e && e.name || "storage error") + ").", "err"); });
+  }
+  function persistRubric(){
+    if(!state.storageOk) return;
+    idbPut("config", {
+      key: "rubric",
+      locked: state.rubric.locked, sourceName: state.rubric.sourceName, kind: state.rubric.kind,
+      rawText: state.rubric.rawText, totalPoints: state.rubric.totalPoints,
+      targetTotal: state.rubric.targetTotal, questions: state.rubric.questions, updatedAt: nowISO(),
+      fileBlob: state.rubric.arrayBuffer ? new Blob([state.rubric.arrayBuffer.slice(0)]) : null
+    }).catch(function(e){
+      showToast("Couldn't save rubric (" + (e && e.name || "storage error") + ") — it's still here in this tab.", "err");
+    });
+  }
+  function serializableStudent(student){
+    var copy = {};
+    Object.keys(student).forEach(function(k){
+      if(k === "arrayBuffer") return; // stored separately as fileBlob below
+      copy[k] = student[k];
+    });
+    copy.fileBlob = student.arrayBuffer ? new Blob([student.arrayBuffer.slice(0)]) : null;
+    return copy;
+  }
+  function persistStudent(student){
+    if(!state.storageOk) return;
+    idbPut("students", serializableStudent(student)).catch(function(e){
+      showToast("Couldn't save " + student.name + "'s progress (" + (e && e.name || "storage error") + ").", "err");
+    });
+  }
+  async function loadPersistedState(){
+    if(!state.storageOk) return;
+    try{
+      var labRec = await idbGet("config", "lab");
+      if(labRec){
+        state.lab = Object.assign({}, state.lab, labRec, { arrayBuffer: null });
+      }
+    }catch(e){ /* leave defaults */ }
+    try{
+      var rubricRec = await idbGet("config", "rubric");
+      if(rubricRec){
+        var rab = null;
+        if(rubricRec.fileBlob){ try{ rab = await rubricRec.fileBlob.arrayBuffer(); }catch(e){ rab = null; } }
+        state.rubric = Object.assign({}, state.rubric, rubricRec, { loaded: true, arrayBuffer: rab });
+        delete state.rubric.fileBlob;
+      }
+    }catch(e){ /* leave defaults */ }
+    try{
+      var studentRecs = await idbGetAll("students");
+      state.students = await Promise.all(studentRecs.map(async function(rec){
+        var sab = null;
+        if(rec.fileBlob){ try{ sab = await rec.fileBlob.arrayBuffer(); }catch(e){ sab = null; } }
+        var copy = Object.assign({}, rec, { arrayBuffer: sab });
+        delete copy.fileBlob;
+        if(!copy.treePath) copy.treePath = copy.sourceFileName || copy.id;
+        return copy;
+      }));
+      sortStudents();
+      rebuildTreeFromStudents();
+    }catch(e){ /* leave empty */ }
+  }
+
+  async function clearPersistedAssignment(){
+    if(!state.storageOk) return;
+    try{ await idbDelete("config", "lab"); }catch(e){ /* ignore */ }
+    try{ await idbDelete("config", "rubric"); }catch(e){ /* ignore */ }
+    try{ await idbClear("students"); }catch(e){ /* ignore */ }
+  }
+
+  async function startNewAssignment(){
+    var hasAnything = state.lab.loaded || state.rubric.loaded || state.students.length > 0;
+    if(hasAnything){
+      var ok = await showConfirmDialog({
+        title: "Start a new assignment?",
+        message: "This clears the lab document, rubric, and every imported submission — including saved grades and comments — so you can begin grading a fresh assignment. This can't be undone.",
+        confirmLabel: "Clear everything",
+        danger: true
+      });
+      if(!ok) return;
+    }
+    if(state.currentAiAbort){ try{ state.currentAiAbort.abort(); }catch(e){ /* ignore */ } }
+
+    state.lab = { loaded:false, sourceName:"", kind:null, rawText:"", arrayBuffer:null, pageCount:0 };
+    state.rubric = { loaded:false, locked:false, sourceName:"", kind:null, rawText:"", arrayBuffer:null, totalPoints:0, targetTotal:100, questions:[] };
+    state.students = [];
+    state.tree = { type:"folder", name:"", children:[] };
+    state.currentStudentId = null;
+    state.rosterFilter = "";
+    state.treeFilter = "";
+    var treeSearchEl = document.getElementById("treeSearchInput");
+    if(treeSearchEl) treeSearchEl.value = "";
+    var rosterSearchEl = document.getElementById("rosterSearchInput");
+    if(rosterSearchEl) rosterSearchEl.value = "";
+
+    renderLabCard();
+    renderRubricCard();
+    renderFileTree();
+    renderRosterControls();
+    renderCenterColumn();
+    renderRightColumn();
+
+    if(state.storageOk){
+      showToast("Clearing saved data…", "");
+      await clearPersistedAssignment();
+    }
+    showToast("Ready for a new assignment — upload the lab document, rubric, and submissions.", "ok");
+  }
+
+  /* ============================== library loading ============================== */
+  function librariesReady(){
+    return typeof window.JSZip !== "undefined" &&
+           typeof window.mammoth !== "undefined" &&
+           typeof window.pdfjsLib !== "undefined";
+  }
+  function initPdfWorker(){
+    if(typeof window.pdfjsLib !== "undefined"){
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js";
+    }
+  }
+
+  /* ============================== text extraction (for AI) ============================== */
+  async function extractPdfText(arrayBuffer){
+    var loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) });
+    var pdf = await loadingTask.promise;
+    var pages = [];
+    for(var i = 1; i <= pdf.numPages; i++){
+      var page = await pdf.getPage(i);
+      var content = await page.getTextContent();
+      var text = content.items.map(function(it){ return it.str; }).join(" ");
+      pages.push(text);
+    }
+    return { text: pages.join("\n\n"), pageCount: pdf.numPages };
+  }
+  function guessKindFromName(name){
+    var ext = fileExt(name);
+    if(ext === "docx") return "docx";
+    if(ext === "doc") return "doc";
+    if(ext === "pdf") return "pdf";
+    if(ext === "txt") return "txt";
+    return null;
+  }
+  async function extractRawText(kind, arrayBuffer){
+    // returns { rawText, parseError, pageCount }
+    if(kind === "docx"){
+      if(typeof window.mammoth === "undefined") return { rawText:"", parseError:"The .docx reader hasn't finished loading — try again in a second." };
+      try{
+        var result = await window.mammoth.extractRawText({ arrayBuffer: arrayBuffer.slice(0) });
+        var t = (result.value || "").trim();
+        return t ? { rawText: t, parseError: null } : { rawText:"", parseError:"No text found in this file." };
+      }catch(e){
+        return { rawText:"", parseError:"Couldn't parse this .docx (" + (e && e.message ? e.message : "unknown error") + ")." };
+      }
+    }
+    if(kind === "pdf"){
+      if(typeof window.pdfjsLib === "undefined") return { rawText:"", parseError:"The PDF reader hasn't finished loading — try again in a second." };
+      try{
+        var res = await extractPdfText(arrayBuffer);
+        var pt = (res.text || "").trim();
+        return pt
+          ? { rawText: pt, parseError: null, pageCount: res.pageCount }
+          : { rawText: "", parseError: "No selectable text found — this PDF may be a scanned image. Paste the text in manually.", pageCount: res.pageCount };
+      }catch(e){
+        return { rawText:"", parseError:"Couldn't read this PDF (" + (e && e.message ? e.message : "unknown error") + ")." };
+      }
+    }
+    if(kind === "txt"){
+      try{
+        var decoded = new TextDecoder("utf-8").decode(arrayBuffer).trim();
+        return decoded ? { rawText: decoded, parseError: null } : { rawText:"", parseError:"This .txt file is empty." };
+      }catch(e){
+        return { rawText:"", parseError:"Couldn't read this .txt file (" + (e && e.message ? e.message : "unknown error") + ")." };
+      }
+    }
+    return { rawText:"", parseError:"Old .doc format can't be read automatically — paste the text in manually." };
+  }
+
+  /* ============================== native document rendering ============================== */
+  async function renderNativeDocument(container, kind, arrayBuffer, opts){
+    opts = opts || {};
+    container.innerHTML = "";
+    var hasRestoredDocxHtml = kind === "docx" && !!opts.renderedHtml;
+    if(!arrayBuffer && !hasRestoredDocxHtml){
+      container.innerHTML = '<div class="viewer-empty"><span class="ve-big">' + (opts.icon || "☰") + '</span>' + escapeHtml(opts.emptyMessage || "Nothing to display.") + '</div>';
+      return;
+    }
+    if(kind === "pdf"){
+      if(typeof window.pdfjsLib === "undefined"){
+        container.innerHTML = '<div class="viewer-empty">Still loading the PDF renderer…</div>';
+        return;
+      }
+      try{
+        var loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) });
+        var pdf = await loadingTask.promise;
+        var wrap = document.createElement("div");
+        wrap.className = "doc-page-wrap";
+        container.innerHTML = "";
+        container.appendChild(wrap);
+        for(var i = 1; i <= pdf.numPages; i++){
+          var page = await pdf.getPage(i);
+          var viewport = page.getViewport({ scale: 1.35 });
+          var canvas = document.createElement("canvas");
+          canvas.className = "doc-canvas-page";
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          wrap.appendChild(canvas);
+          var ctx = canvas.getContext("2d");
+          await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+        }
+      }catch(e){
+        container.innerHTML = '<div class="viewer-empty">Couldn\'t render this PDF (' + escapeHtml(e && e.message ? e.message : "unknown error") + ').</div>';
+      }
+      return;
+    }
+    if(kind === "docx"){
+      var docxHtml = null;
+      if(opts.renderedHtml){
+        // Restored from a previous session: we only kept the already-rendered HTML
+        // (the raw .docx bytes aren't storable as-is), so skip mammoth entirely.
+        docxHtml = opts.renderedHtml;
+      }else if(arrayBuffer){
+        if(typeof window.mammoth === "undefined"){
+          container.innerHTML = '<div class="viewer-empty">Still loading the .docx renderer…</div>';
+          return;
+        }
+        try{
+          var result = await window.mammoth.convertToHtml({ arrayBuffer: arrayBuffer.slice(0) });
+          docxHtml = result.value || "<p><em>(empty document)</em></p>";
+        }catch(e){
+          container.innerHTML = '<div class="viewer-empty">Couldn\'t render this .docx (' + escapeHtml(e && e.message ? e.message : "unknown error") + ').</div>';
+          return;
+        }
+      }
+      if(docxHtml == null){
+        container.innerHTML = '<div class="viewer-empty">No .docx content available.</div>';
+        return;
+      }
+      var pageEl = document.createElement("div");
+      pageEl.className = "docx-render";
+      pageEl.style.maxWidth = "760px";
+      pageEl.innerHTML = docxHtml;
+      var wrapD = document.createElement("div");
+      wrapD.className = "doc-page-wrap";
+      wrapD.appendChild(pageEl);
+      container.innerHTML = "";
+      container.appendChild(wrapD);
+      return;
+    }
+    if(kind === "txt"){
+      try{
+        var text = new TextDecoder("utf-8").decode(arrayBuffer);
+        var pre = document.createElement("div");
+        pre.className = "txt-render";
+        pre.style.maxWidth = "760px";
+        pre.textContent = text;
+        var wrapT = document.createElement("div");
+        wrapT.className = "doc-page-wrap";
+        wrapT.appendChild(pre);
+        container.innerHTML = "";
+        container.appendChild(wrapT);
+      }catch(e){
+        container.innerHTML = '<div class="viewer-empty">Couldn\'t read this .txt file.</div>';
+      }
+      return;
+    }
+    // old .doc or unknown kind — no in-browser renderer available
+    container.innerHTML = '<div class="viewer-empty"><span class="ve-big">⚠</span>This file format (.doc) can\'t be displayed in the browser.<br>Re-upload as .docx or .pdf, or paste the text in manually to keep grading.</div>';
+  }
+
+  /* ============================== lab document (Import 1) ============================== */
+  async function handleLabFile(file){
+    if(!file) return;
+    var kind = guessKindFromName(file.name);
+    if(!kind){ showToast("Unsupported file type — use .pdf, .docx, or .txt.", "err"); return; }
+    var ab = await file.arrayBuffer();
+    var res = await extractRawText(kind, ab);
+    state.lab.loaded = true;
+    state.lab.sourceName = file.name;
+    state.lab.kind = kind;
+    state.lab.rawText = res.rawText || "";
+    state.lab.arrayBuffer = ab;
+    state.lab.pageCount = res.pageCount || 0;
+    state.lab.parseError = res.parseError || null;
+    renderLabCard();
+    persistLab();
+    if(res.parseError){
+      showToast("Lab document uploaded, but text extraction had an issue: " + res.parseError, "err");
+    }else{
+      showToast("Lab document loaded.", "ok");
+    }
+  }
+
+  function renderLabCard(){
+    var uploadArea = document.getElementById("labUploadArea");
+    var meta = document.getElementById("labMeta");
+    if(!state.lab.loaded){
+      uploadArea.hidden = false; meta.hidden = true;
+      return;
+    }
+    uploadArea.hidden = true; meta.hidden = false;
+    document.getElementById("labFileName").textContent = state.lab.sourceName;
+    var words = state.lab.rawText ? state.lab.rawText.trim().split(/\s+/).filter(Boolean).length : 0;
+    var stats = state.lab.kind === "pdf" && state.lab.pageCount ? (state.lab.pageCount + " page" + (state.lab.pageCount === 1 ? "" : "s") + " · ") : "";
+    stats += state.lab.parseError ? state.lab.parseError : (words + " words extracted for AI context");
+    document.getElementById("labFileStats").textContent = stats;
+  }
+
+  /* ------------------------------ lab document: load from a link ------------------------------ */
+  function htmlToPlainText(html){
+    try{
+      var doc = new DOMParser().parseFromString(html, "text/html");
+      doc.querySelectorAll("script,style,noscript,nav,footer").forEach(function(el){ el.remove(); });
+      var root = doc.body || doc.documentElement;
+      var text = (root && root.textContent) || "";
+      return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    }catch(e){
+      return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  function setLabFromText(sourceName, text){
+    state.lab.loaded = true;
+    state.lab.sourceName = sourceName;
+    state.lab.kind = "txt";
+    state.lab.rawText = (text || "").trim();
+    state.lab.arrayBuffer = null;
+    state.lab.pageCount = 0;
+    state.lab.parseError = state.lab.rawText ? null : "No text found.";
+    renderLabCard();
+    persistLab();
+  }
+
+  function setLabUrlStatus(msg, kind){
+    var el = document.getElementById("labUrlStatus");
+    el.hidden = !msg;
+    el.className = "lab-url-status" + (kind ? " " + kind : "");
+    el.textContent = msg || "";
+  }
+
+  async function handleLabUrlFetch(){
+    var input = document.getElementById("labUrlInput");
+    var url = input.value.trim();
+    if(!url){ setLabUrlStatus("Paste a link first.", "err"); return; }
+    var btn = document.getElementById("labUrlFetchBtn");
+    btn.disabled = true;
+    setLabUrlStatus("Fetching…", "");
+    try{
+      var res = await fetch(url, { mode: "cors" });
+      if(!res.ok) throw new Error("server responded with " + res.status);
+      var contentType = res.headers.get("content-type") || "";
+      var raw = await res.text();
+      var text = contentType.indexOf("html") !== -1 ? htmlToPlainText(raw) : raw.trim();
+      if(!text) throw new Error("that page had no readable text");
+      setLabFromText(url, text);
+      setLabUrlStatus("Loaded from link.", "ok");
+      showToast("Lab document loaded from link.", "ok");
+    }catch(e){
+      // This standalone file has no sandbox of its own, but the TARGET site still has to
+      // allow cross-origin requests (send an Access-Control-Allow-Origin header) for a fetch
+      // from here to succeed — that's a normal browser rule for every website, not something
+      // this tool or its hosting can control. Fall back to paste-in either way.
+      setLabUrlStatus(
+        "Couldn't fetch that link — the site may not allow cross-origin requests, or it's unreachable. " +
+        "Paste the page's text below instead.",
+        "err"
+      );
+      document.getElementById("labPasteArea").hidden = false;
+      document.getElementById("labPasteText").focus();
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  /* ============================== rubric (Import 2) ============================== */
+  function newQuestionRow(partial){
+    return Object.assign({
+      id: uid(),
+      number: String(state.rubric.questions.length + 1),
+      maxPoints: 0,
+      questionText: "",
+      correctAnswer: ""
+    }, partial || {});
+  }
+
+  async function handleRubricFile(file){
+    if(!file) return;
+    var kind = guessKindFromName(file.name);
+    if(!kind){ showToast("Unsupported file type — use .pdf, .docx, or .txt.", "err"); return; }
+    if(!librariesReady()){ showToast("Still loading document readers — try again in a second.", "err"); return; }
+    try{
+      var ab = await file.arrayBuffer();
+      var res = await extractRawText(kind, ab);
+      state.rubric.rawText = res.rawText || "";
+      state.rubric.sourceName = file.name;
+      state.rubric.kind = kind;
+      state.rubric.arrayBuffer = ab;
+      state.rubric.loaded = true;
+      if(!state.rubric.questions.length){
+        state.rubric.questions = [newQuestionRow({ number: "1" })];
+      }
+      renderRubricCard();
+      renderRubricViewer();
+      persistRubric();
+      if(res.parseError){
+        showToast("Rubric loaded, but: " + res.parseError, "err");
+      }else if(state.sample){
+        runAiRubricExtraction();
+      }else{
+        showToast("Rubric loaded. Add your questions below, or set an Anthropic API key in Settings to auto-extract them.", "");
+      }
+    }catch(e){
+      showToast("Couldn't read that rubric (" + (e && e.message ? e.message : "unknown error") + ").", "err");
+    }
+  }
+
+  async function runAiRubricExtraction(){
+    if(!state.sample){ showToast("Set an Anthropic API key in Settings to use AI extraction — add each question's correct answer manually below for now.", ""); return; }
+    var thinkingEl = document.getElementById("rubricThinking");
+    thinkingEl.hidden = false;
+    document.getElementById("rubricReextractBtn").disabled = true;
+    try{
+      var text = state.rubric.rawText.slice(0, 20000);
+      var prompt = "You are helping a teaching assistant set up a grading rubric.\n" +
+        "Below is text extracted from a rubric/answer-key document for a computer systems course.\n" +
+        "Read it and reply with ONLY a JSON object of this exact shape:\n" +
+        '{"totalPoints": number, "questions": [{"number": string, "maxPoints": number, "questionText": string, "correctAnswer": string}]}\n' +
+        "Include every question you can find, in order, with the correct/expected answer summarized concisely. " +
+        "Question numbers are STRINGS, exactly as printed — this rubric may use sub-numbering like \"5.1\", \"9.4\", \"14.10\", \"14.12\"; " +
+        "keep every digit (never drop a trailing zero or round \"14.10\" to \"14.1\") since these are labels, not arithmetic values. " +
+        "If the rubric states an overall total, use it for totalPoints; otherwise sum the question points.\n\n" +
+        "RUBRIC TEXT:\n" + text;
+      var data = await sampleJsonWithRetry(prompt, { modelTier: "default" });
+      if(data && Array.isArray(data.questions) && data.questions.length){
+        state.rubric.questions = data.questions.map(function(q, i){
+          var num = (q.number !== undefined && q.number !== null && String(q.number).trim() !== "") ? String(q.number).trim() : String(i + 1);
+          return newQuestionRow({
+            number: num,
+            maxPoints: Number(q.maxPoints) || 0,
+            questionText: String(q.questionText || ""),
+            correctAnswer: String(q.correctAnswer || "")
+          });
+        });
+        if(data.totalPoints) state.rubric.totalPoints = Number(data.totalPoints) || rubricTotalFromRows();
+        showToast("Extracted " + state.rubric.questions.length + " questions — double-check them on the left.", "ok");
+      }else{
+        showToast("AI didn't return any questions — you can add rows manually.", "err");
+      }
+    }catch(e){
+      reportSampleError(e, "rubric extraction");
+    }finally{
+      thinkingEl.hidden = true;
+      document.getElementById("rubricReextractBtn").disabled = false;
+      renderRubricCard();
+      persistRubric();
+      state.students.forEach(reconcilePerQuestion);
+      if(currentStudent()) renderRightColumn();
+    }
+  }
+
+  function renderRubricCard(){
+    var uploadArea = document.getElementById("rubricUploadArea");
+    var meta = document.getElementById("rubricMeta");
+    if(!state.rubric.loaded){ uploadArea.hidden = false; meta.hidden = true; return; }
+    uploadArea.hidden = true; meta.hidden = false;
+    document.getElementById("rubricFileName").textContent = state.rubric.sourceName || "rubric";
+
+    var list = document.getElementById("rubricMiniList");
+    if(!state.rubric.questions.length){
+      list.innerHTML = '<div class="tree-empty">No questions yet.</div>';
+    }else{
+      list.innerHTML = "";
+      state.rubric.questions.forEach(function(q, idx){
+        var row = document.createElement("div");
+        row.className = "rubric-mini-row";
+        row.innerHTML =
+          '<div class="rmr-num">Q<input type="text" class="rmr-num-input" data-role="num" value="' + escapeHtml(q.number) + '"></div>' +
+          '<div class="rmr-ans"><textarea data-role="ans" placeholder="Correct answer">' + escapeHtml(q.correctAnswer) + '</textarea></div>' +
+          '<div class="rmr-pts"><input type="number" min="0" step="0.5" data-role="pts" value="' + escapeHtml(q.maxPoints) + '"><button class="btn btn-quiet btn-xs" data-role="remove" style="margin-top:3px;padding:1px 4px;" title="Remove">&times;</button></div>';
+        row.querySelector('[data-role="num"]').addEventListener("input", function(ev){ q.number = ev.target.value; });
+        row.querySelector('[data-role="ans"]').addEventListener("input", function(ev){ q.correctAnswer = ev.target.value; });
+        row.querySelector('[data-role="pts"]').addEventListener("input", function(ev){
+          q.maxPoints = Number(ev.target.value) || 0;
+          updateRubricTotals();
+        });
+        row.querySelector('[data-role="remove"]').addEventListener("click", function(){
+          state.rubric.questions.splice(idx, 1);
+          renderRubricCard();
+          updateRubricTotals();
+        });
+        list.appendChild(row);
+      });
+    }
+    updateRubricTotals();
+    document.getElementById("targetTotalInput").value = state.rubric.targetTotal;
+    renderRubricViewer();
+  }
+
+  function updateRubricTotals(){
+    var total = rubricTotalFromRows();
+    state.rubric.totalPoints = total;
+    document.getElementById("rubricTotalValue").textContent = fmtNum(total) + " pts";
+  }
+
+  function renderRubricViewer(){
+    var body = document.getElementById("rubricViewerBody");
+    var fileLabel = document.getElementById("rubricPanelFile");
+    if(!state.rubric.loaded){
+      fileLabel.textContent = "";
+      body.innerHTML = '<div class="viewer-empty"><span class="ve-big">☰</span>Upload a rubric to see it here.</div>';
+      return;
+    }
+    fileLabel.textContent = state.rubric.sourceName || "";
+    if(state.rubric.arrayBuffer){
+      renderNativeDocument(body, state.rubric.kind, state.rubric.arrayBuffer, { emptyMessage: "Rubric not available." });
+    }else{
+      body.innerHTML = '<div class="viewer-empty"><span class="ve-big">↻</span>This rubric\'s file couldn\'t be restored from local storage.<br>Re-upload "' + escapeHtml(state.rubric.sourceName || "the rubric") + '" above to view it again.</div>';
+    }
+  }
+
+  /* ============================== settings (API key + model, localStorage) ============================== */
+  var LS_PREFIX = "gradingBench.";
+  var LS_KEYS = { apiKey: LS_PREFIX + "apiKey", model: LS_PREFIX + "model" };
+
+  function loadSettings(){
+    try{
+      state.settings.apiKey = window.localStorage.getItem(LS_KEYS.apiKey) || "";
+      state.settings.model = window.localStorage.getItem(LS_KEYS.model) || "claude-sonnet-5";
+    }catch(e){ /* defaults stand */ }
+    state.sample = state.settings.apiKey ? { json: askClaudeJson } : null;
+  }
+
+  /* ============================== direct Anthropic API calls (bring-your-own-key) ============================== */
+  // Standalone replacement for the hosted tool's `sample` capability: this calls the Anthropic
+  // API directly from the browser using a key the user pastes into Settings. Requires the
+  // "direct browser access" header since this is a plain webpage, not a backend server.
+  function parseJsonLoose(text){
+    var trimmed = String(text || "").trim();
+    try{ return JSON.parse(trimmed); }catch(e){ /* fall through */ }
+    var fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if(fence){
+      try{ return JSON.parse(fence[1].trim()); }catch(e){ /* fall through */ }
+    }
+    var start = -1, end = -1;
+    for(var si = 0; si < trimmed.length; si++){ if(trimmed[si] === "{" || trimmed[si] === "["){ start = si; break; } }
+    for(var ei = trimmed.length - 1; ei >= 0; ei--){ if(trimmed[ei] === "}" || trimmed[ei] === "]"){ end = ei; break; } }
+    if(start !== -1 && end !== -1 && end > start){
+      try{ return JSON.parse(trimmed.slice(start, end + 1)); }catch(e){ /* fall through */ }
+    }
+    var err = new Error("invalid_json"); err.code = "invalid_json"; err.text = text;
+    throw err;
+  }
+
+  async function askClaudeJson(prompt, opts){
+    opts = opts || {};
+    if(!state.settings.apiKey){
+      var e0 = new Error("No API key configured"); e0.code = "no_key"; throw e0;
+    }
+    var response;
+    try{
+      response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        signal: opts.signal,
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": state.settings.apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: state.settings.model || "claude-sonnet-5",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+    }catch(networkErr){
+      if(networkErr && networkErr.name === "AbortError"){
+        var eA = new Error("cancelled"); eA.code = "cancelled"; throw eA;
+      }
+      var eN = new Error("Network request failed"); eN.code = "network_error"; throw eN;
+    }
+    if(!response.ok){
+      var bodyText = await response.text().catch(function(){ return ""; });
+      var apiMsg = "";
+      try{ apiMsg = (JSON.parse(bodyText).error || {}).message || ""; }catch(e){ /* ignore */ }
+      var code = "upstream_error";
+      if(response.status === 401 || response.status === 403) code = "invalid_key";
+      else if(response.status === 429) code = "rate_limited";
+      else if(response.status === 400) code = "bad_request";
+      else if(response.status >= 500) code = "server_error";
+      var eS = new Error(apiMsg || ("Request failed with status " + response.status));
+      eS.code = code;
+      throw eS;
+    }
+    var data = await response.json();
+    var text = (data.content || []).map(function(block){ return block.text || ""; }).join("");
+    if(!text.trim()){
+      var eE = new Error("Empty response"); eE.code = "empty_completion"; throw eE;
+    }
+    return parseJsonLoose(text);
+  }
+
+  function openSettingsPanel(){
+    document.getElementById("settingsPanel").hidden = false;
+  }
+
+  function reportSampleError(e, contextLabel){
+    var code = e && e.code || "upstream_error";
+    if(code === "cancelled") return;
+    if(code === "no_key"){
+      showToast("Set your Anthropic API key in Settings to use AI suggestions.", "");
+      openSettingsPanel();
+      return;
+    }
+    if(code === "invalid_key"){
+      showToast("Anthropic rejected that API key — check it in Settings.", "err");
+      openSettingsPanel();
+      return;
+    }
+    var msg = {
+      rate_limited: "Anthropic API is rate-limiting this key right now — try again shortly.",
+      network_error: "Couldn't reach the Anthropic API — check your connection.",
+      bad_request: (e && e.message) ? e.message : "Anthropic API rejected that request.",
+      server_error: "Anthropic API had a server error — try again.",
+      upstream_error: "AI request failed — try again.",
+      invalid_json: "AI reply wasn't valid JSON — try again.",
+      empty_completion: "AI returned nothing usable — try again.",
+      prompt_too_large: "That submission is too long for one AI request — you'll need to grade it manually."
+    }[code] || ("AI request failed (" + code + ").");
+    // Always surface the raw code too — a bare "try again" gives no way to tell a one-off
+    // network blip from a real, repeatable problem.
+    var detail = [code, contextLabel].filter(Boolean).join(" — ");
+    showToast(msg + (detail ? " (" + detail + ")" : ""), "err");
+  }
+
+  // A handful of failure codes are plausibly transient (a momentary upstream hiccup), so retry
+  // once, after a short pause, before bothering the user — rather than looping or giving up
+  // on the first blip.
+  var RETRYABLE_SAMPLE_CODES = ["upstream_error", "store_unavailable", "rate_limited"];
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  async function sampleJsonWithRetry(prompt, opts){
+    try{
+      return await state.sample.json(prompt, opts);
+    }catch(e){
+      var code = e && e.code;
+      var aborted = opts && opts.signal && opts.signal.aborted;
+      if(!aborted && RETRYABLE_SAMPLE_CODES.indexOf(code) !== -1){
+        await wait(1200);
+        return await state.sample.json(prompt, opts);
+      }
+      throw e;
+    }
+  }
+
+  /* ============================== submissions (Import 3) ============================== */
+  function buildFreshPerQuestion(){
+    return state.rubric.questions.map(function(q){
+      return { number: q.number, maxPoints: Number(q.maxPoints) || 0, deduction: 0, verdict: "unreviewed", comment: "", aiGenerated: false };
+    });
+  }
+  function reconcilePerQuestion(student){
+    var byNumber = {};
+    (student.perQuestion || []).forEach(function(pq){ byNumber[pq.number] = pq; });
+    student.perQuestion = state.rubric.questions.map(function(q){
+      var existing = byNumber[q.number];
+      if(existing){
+        existing.maxPoints = Number(q.maxPoints) || 0;
+        existing.deduction = clamp(Number(existing.deduction) || 0, 0, existing.maxPoints);
+        return existing;
+      }
+      return { number: q.number, maxPoints: Number(q.maxPoints) || 0, deduction: 0, verdict: "unreviewed", comment: "", aiGenerated: false };
+    });
+    return student;
+  }
+
+  async function upsertStudentFromEntry(path, fileName, kind, arrayBuffer, extraction){
+    var name = nameFromFilename(fileName);
+    var id = safeDocId(name + "-" + path, "student-" + uid());
+    var existing = state.students.find(function(s){ return s.treePath === path; });
+    var student = existing || {
+      id: id, name: name, sourceFileName: fileName, treePath: path,
+      importedAt: nowISO(), perQuestion: buildFreshPerQuestion(), finalComment: "", gradedAt: null
+    };
+    student.kind = kind;
+    student.arrayBuffer = arrayBuffer;
+    student.rawText = extraction.rawText || "";
+    student.parseError = extraction.parseError || null;
+    student.sourceFileName = fileName;
+    if(!existing){
+      state.students.push(student);
+    }else{
+      reconcilePerQuestion(student);
+    }
+    persistStudent(student);
+    return student;
+  }
+
+  function insertIntoTree(path){
+    var parts = path.split("/").filter(Boolean);
+    var node = state.tree;
+    for(var i = 0; i < parts.length - 1; i++){
+      var folderName = parts[i];
+      var next = node.children.find(function(c){ return c.type === "folder" && c.name === folderName; });
+      if(!next){ next = { type:"folder", name: folderName, children: [] }; node.children.push(next); }
+      node = next;
+    }
+    var fileName = parts[parts.length - 1];
+    var existingLeaf = node.children.find(function(c){ return c.type === "file" && c.path === path; });
+    if(!existingLeaf){
+      node.children.push({ type:"file", name: fileName, path: path });
+    }
+  }
+
+  function rebuildTreeFromStudents(){
+    state.tree = { type:"folder", name:"", children:[] };
+    state.students.forEach(function(s){ insertIntoTree(s.treePath || s.sourceFileName); });
+  }
+
+  async function importEntry(path, fileName, arrayBuffer){
+    var kind = guessKindFromName(fileName);
+    if(!kind) return null;
+    var extraction = await extractRawText(kind, arrayBuffer);
+    insertIntoTree(path);
+    var student = await upsertStudentFromEntry(path, fileName, kind, arrayBuffer, extraction);
+    return student;
+  }
+
+  async function handleZipFile(file){
+    if(!file) return;
+    if(typeof window.JSZip === "undefined"){ showToast("Still loading the zip reader — try again in a second.", "err"); return; }
+    try{
+      var buf = await file.arrayBuffer();
+      var zip = await window.JSZip.loadAsync(buf);
+      var entries = Object.keys(zip.files).filter(function(name){
+        var entry = zip.files[name];
+        if(entry.dir) return false;
+        if(/(^|\/)(__MACOSX|\.DS_Store)/i.test(name)) return false;
+        if(/(^|\/)~\$/.test(name)) return false;
+        return /\.(docx|doc|pdf|txt)$/i.test(name);
+      });
+      if(!entries.length){ showToast("No .doc/.docx/.pdf/.txt files found in that zip.", "err"); return; }
+      var okCount = 0, errCount = 0;
+      for(var i = 0; i < entries.length; i++){
+        var name = entries[i];
+        try{
+          var ab = await zip.files[name].async("arraybuffer");
+          var student = await importEntry(name, name.split("/").pop(), ab);
+          if(student){ if(student.parseError) errCount++; else okCount++; }
+        }catch(entryErr){
+          // One bad entry (corrupt bytes, unexpected error, etc.) must not abort the rest
+          // of the batch — count it as failed and keep going.
+          errCount++;
+        }
+      }
+      sortStudents();
+      renderFileTree();
+      renderRosterControls();
+      if(!state.currentStudentId && state.students.length){ selectStudent(state.students[0].id); }
+      showToast("Imported " + okCount + " submission" + (okCount === 1 ? "" : "s") + (errCount ? ", " + errCount + " need text pasted in (see the left panel)." : "."), errCount && !okCount ? "err" : "ok");
+    }catch(e){
+      showToast("Couldn't read that zip (" + (e && e.message ? e.message : "unknown error") + ").", "err");
+    }
+  }
+
+  async function handleIndividualFiles(fileList){
+    var files = Array.prototype.slice.call(fileList || []);
+    var okCount = 0, errCount = 0;
+    for(var i = 0; i < files.length; i++){
+      var f = files[i];
+      var ab = await f.arrayBuffer();
+      var student = await importEntry(f.name, f.name, ab);
+      if(student){ if(student.parseError) errCount++; else okCount++; }
+    }
+    sortStudents();
+    renderFileTree();
+    renderRosterControls();
+    if(!state.currentStudentId && state.students.length){ selectStudent(state.students[0].id); }
+    if(files.length){
+      showToast("Added " + okCount + " submission" + (okCount === 1 ? "" : "s") + (errCount ? ", " + errCount + " need text pasted in." : "."), errCount && !okCount ? "err" : "ok");
+    }
+  }
+
+  /* ------------------------------ directory tree UI ------------------------------ */
+  function treeMatchesFilter(node, q){
+    if(!q) return true;
+    if(node.type === "file") return node.name.toLowerCase().indexOf(q) !== -1;
+    return node.children.some(function(c){ return treeMatchesFilter(c, q); });
+  }
+  function renderFileTree(){
+    var wrap = document.getElementById("fileTree");
+    var area = document.getElementById("treeArea");
+    var count = document.getElementById("submissionCount");
+    count.textContent = state.students.length ? "(" + state.students.length + ")" : "";
+    if(!state.students.length){ wrap.innerHTML = ""; area.hidden = true; return; }
+    area.hidden = false;
+    var q = state.treeFilter.trim().toLowerCase();
+    wrap.innerHTML = "";
+    function renderNode(node, container, depth){
+      if(node.type === "folder"){
+        var visibleChildren = node.children.filter(function(c){ return treeMatchesFilter(c, q); });
+        if(q && !visibleChildren.length) return;
+        if(node.name){
+          var frow = document.createElement("div");
+          frow.className = "tree-folder-row";
+          frow.style.paddingLeft = (8 + depth * 12) + "px";
+          frow.innerHTML = '<span class="tree-folder-caret">▾</span><span>' + escapeHtml(node.name) + '</span>';
+          var childWrap = document.createElement("div");
+          childWrap.className = "tree-children";
+          frow.addEventListener("click", function(){
+            frow.classList.toggle("collapsed");
+            childWrap.classList.toggle("collapsed");
+          });
+          container.appendChild(frow);
+          container.appendChild(childWrap);
+          (q ? visibleChildren : node.children).forEach(function(c){ renderNode(c, childWrap, depth + 1); });
+        }else{
+          (q ? visibleChildren : node.children).forEach(function(c){ renderNode(c, container, depth); });
+        }
+      }else{
+        var student = state.students.find(function(s){ return s.treePath === node.path; });
+        if(!student) return;
+        var frow2 = document.createElement("div");
+        frow2.className = "tree-file-row" + (student.id === state.currentStudentId ? " active" : "") + (student.parseError ? " has-error" : "");
+        frow2.style.paddingLeft = (8 + depth * 12) + "px";
+        frow2.setAttribute("data-student-id", student.id);
+        var ext = fileExt(student.sourceFileName).toUpperCase();
+        var statusIcon = student.gradedAt ? "✓" : (student.parseError ? "!" : "");
+        frow2.innerHTML =
+          '<span class="tree-file-icon">' + escapeHtml(ext || "?") + '</span>' +
+          '<span class="tree-file-name">' + escapeHtml(student.name) + '</span>' +
+          '<span class="tree-file-status">' + statusIcon + '</span>';
+        frow2.addEventListener("click", function(){ selectStudent(student.id); });
+        container.appendChild(frow2);
+        if(student.parseError){
+          var fixRow = document.createElement("div");
+          fixRow.className = "tree-fix-row";
+          fixRow.innerHTML =
+            '<div class="tree-fix-note">' + escapeHtml(student.parseError) + '</div>' +
+            '<textarea placeholder="Paste ' + escapeHtml(student.name) + '\'s answer text here">' + escapeHtml(student.rawText || "") + '</textarea>' +
+            '<div class="tree-fix-actions"><button class="btn btn-xs btn-accent" data-role="save">Save text</button></div>';
+          fixRow.querySelector("textarea").addEventListener("click", function(ev){ ev.stopPropagation(); });
+          fixRow.addEventListener("click", function(ev){ ev.stopPropagation(); });
+          fixRow.querySelector('[data-role="save"]').addEventListener("click", function(){
+            var val = fixRow.querySelector("textarea").value.trim();
+            if(!val){ showToast("Paste some text first.", "err"); return; }
+            student.rawText = val;
+            student.parseError = null;
+            persistStudent(student);
+            renderFileTree();
+            if(student.id === state.currentStudentId) renderRightColumn();
+            showToast(student.name + "'s text saved — ready for AI comparison.", "ok");
+          });
+          container.appendChild(fixRow);
+        }
+      }
+    }
+    if(!state.tree.children.length){
+      wrap.innerHTML = '<div class="tree-empty">No submissions yet.</div>';
+      return;
+    }
+    renderNode(state.tree, wrap, 0);
+    if(wrap.innerHTML === "" && q){
+      wrap.innerHTML = '<div class="tree-empty">No submissions match "' + escapeHtml(state.treeFilter.trim()) + '".</div>';
+    }
+  }
+
+  /* ============================== roster (center header) ============================== */
+  var STATUS_LABEL = { notstarted:"Not started", aidrafted:"AI drafted", inprogress:"In progress", graded:"Graded" };
+  var STATUS_PILL = { notstarted:"", aidrafted:"st-aidrafted", inprogress:"st-inprogress", graded:"st-graded" };
+
+  function studentStatus(student){
+    if(student.gradedAt) return "graded";
+    var anyReviewed = student.perQuestion.some(function(q){ return q.verdict !== "unreviewed"; });
+    var anyAi = student.perQuestion.some(function(q){ return q.aiGenerated; });
+    if(anyReviewed) return "inprogress";
+    if(anyAi) return "aidrafted";
+    return "notstarted";
+  }
+  function computeScores(student){
+    var raw = student.perQuestion.reduce(function(sum, q){
+      var d = clamp(Number(q.deduction) || 0, 0, q.maxPoints);
+      return sum + (q.maxPoints - d);
+    }, 0);
+    var total = rubricTotal();
+    var scaled = total > 0 ? (raw / total) * state.rubric.targetTotal : 0;
+    return { raw: raw, scaled: scaled, total: total };
+  }
+  function currentRosterMatches(){
+    var q = state.rosterFilter.trim().toLowerCase();
+    if(!q) return state.students;
+    return state.students.filter(function(s){ return s.name.toLowerCase().indexOf(q) !== -1; });
+  }
+  function clearRosterFilter(){
+    state.rosterFilter = "";
+    var input = document.getElementById("rosterSearchInput");
+    if(input) input.value = "";
+  }
+  function renderRosterControls(){
+    sortStudents();
+    var matches = currentRosterMatches();
+    var select = document.getElementById("studentSelect");
+    select.innerHTML = "";
+    if(!state.students.length){
+      select.innerHTML = '<option>No students imported yet</option>';
+      select.disabled = true;
+    }else{
+      matches.forEach(function(s){
+        var scores = computeScores(s);
+        var opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = s.name + "  —  " + STATUS_LABEL[studentStatus(s)] + (s.gradedAt ? "  (" + fmtNum(scores.scaled) + ")" : "");
+        select.appendChild(opt);
+      });
+      select.disabled = matches.length === 0;
+      if(state.currentStudentId && matches.some(function(s){ return s.id === state.currentStudentId; })){
+        select.value = state.currentStudentId;
+      }
+    }
+  }
+
+  function selectStudent(id){
+    state.currentStudentId = id;
+    renderCenterColumn();
+    renderRightColumn();
+    renderRosterControls();
+    document.querySelectorAll(".tree-file-row").forEach(function(row){
+      row.classList.toggle("active", row.getAttribute("data-student-id") === id);
+    });
+  }
+
+  /* ============================== center column: document viewers ============================== */
+  function renderCenterColumn(){
+    var student = currentStudent();
+    var pill = document.getElementById("studentStatusPill");
+    if(!student){
+      document.getElementById("studentPanelName").textContent = "No student selected";
+      document.getElementById("studentPanelFile").textContent = "";
+      document.getElementById("studentViewerBody").innerHTML = '<div class="viewer-empty"><span class="ve-big">☰</span>Pick a student to view their submission.</div>';
+      pill.hidden = true;
+      return;
+    }
+    document.getElementById("studentPanelName").textContent = student.name;
+    document.getElementById("studentPanelFile").textContent = student.sourceFileName || "";
+    pill.hidden = false;
+    var status = studentStatus(student);
+    pill.className = "status-pill " + (STATUS_PILL[status] || "");
+    pill.textContent = STATUS_LABEL[status];
+
+    var body = document.getElementById("studentViewerBody");
+    if(student.arrayBuffer){
+      renderNativeDocument(body, student.kind, student.arrayBuffer, { emptyMessage: "No file to display." });
+    }else{
+      body.innerHTML = '<div class="viewer-empty"><span class="ve-big">↻</span>This file couldn\'t be restored from local storage.<br>Re-import "' + escapeHtml(student.sourceFileName || student.name) + '" to view it again.</div>';
+    }
+  }
+
+  /* ============================== right column: AI comparison + grade + comments ============================== */
+  function generateFinalComment(student){
+    var scores = computeScores(student);
+    var header = "Score: " + fmtNum(scores.scaled) + " / " + fmtNum(state.rubric.targetTotal) +
+      "  (raw " + fmtNum(scores.raw) + " / " + fmtNum(scores.total) + ")";
+    if(scores.total > 0 && Math.round(scores.raw * 100) === Math.round(scores.total * 100)){
+      return header + "\n\nGreat job — full marks! Every answer matched the rubric's expected solution.";
+    }
+    var missed = student.perQuestion.filter(function(q){ return (Number(q.deduction) || 0) > 0; });
+    if(!missed.length) return header;
+    var rubricByNumber = {};
+    state.rubric.questions.forEach(function(q){ rubricByNumber[q.number] = q; });
+    var lines = missed.map(function(q){
+      var d = Number(q.deduction) || 0;
+      var rq = rubricByNumber[q.number];
+      var correct = rq && rq.correctAnswer ? rq.correctAnswer.trim() : "";
+      var line = "Q" + q.number + " (−" + fmtNum(d) + " pt" + (d === 1 ? "" : "s") + "): " + (q.comment && q.comment.trim() ? q.comment.trim() : "Did not match the rubric answer.");
+      if(correct) line += "\n   Correct answer: " + correct;
+      return line;
+    });
+    return header + "\n\n" + lines.join("\n\n");
+  }
+
+  function renderComparisonArea(student){
+    var area = document.getElementById("comparisonArea");
+    if(!student){ area.innerHTML = '<div class="empty-note">Select a student to see the comparison.</div>'; return; }
+    if(!state.rubric.questions.length){ area.innerHTML = '<div class="empty-note">Set up the rubric first.</div>'; return; }
+
+    var groups = { met: [], mismatch: [], missing: [] };
+    student.perQuestion.forEach(function(q){
+      if(q.verdict === "correct") groups.met.push(q);
+      else if(q.verdict === "partial") groups.mismatch.push(q);
+      else if(q.verdict === "incorrect") groups.missing.push(q);
+    });
+    var reviewed = groups.met.length + groups.mismatch.length + groups.missing.length;
+    var rubricByNumber = {};
+    state.rubric.questions.forEach(function(q){ rubricByNumber[q.number] = q; });
+
+    function renderGroup(key, label, items){
+      if(!items.length) return "";
+      var cards = items.map(function(q){
+        var rq = rubricByNumber[q.number];
+        var correct = rq && rq.correctAnswer ? rq.correctAnswer.trim() : "";
+        return '<div class="compare-card" data-qnum="' + escapeHtml(q.number) + '">' +
+          '<div class="cc-head"><span>Q' + escapeHtml(q.number) + '</span><span>' + fmtNum(q.maxPoints) + ' pts' + (q.aiGenerated ? " · AI" : "") + '</span></div>' +
+          (q.comment ? '<div class="cc-note">' + escapeHtml(q.comment) + '</div>' : (key === "met" ? '<div class="cc-note">Matches the rubric answer.</div>' : '')) +
+          (correct && key !== "met" ? '<div class="cc-correct">Expected: ' + escapeHtml(correct) + '</div>' : '') +
+          '<div class="cc-controls">' +
+            '<label>Verdict</label><select data-role="verdict">' +
+              ["correct","partial","incorrect"].map(function(v){ return '<option value="' + v + '"' + (q.verdict === v ? " selected" : "") + '>' + v + '</option>'; }).join("") +
+            '</select>' +
+            '<label>Deduct</label><input type="number" data-role="deduction" min="0" max="' + q.maxPoints + '" step="0.5" value="' + q.deduction + '">' +
+          '</div>' +
+        '</div>';
+      }).join("");
+      return '<div class="compare-group cg-' + key + '">' +
+        '<div class="compare-group-head"><span class="cg-dot"></span>' + label + ' <span class="cg-count">(' + items.length + ')</span></div>' +
+        cards +
+      '</div>';
+    }
+
+    var html = "";
+    if(!reviewed){
+      html += '<div class="empty-note">No comparison yet — click "Run comparison" above, or grade manually below.</div>';
+    }
+    html += renderGroup("met", "Met criteria", groups.met);
+    html += renderGroup("mismatch", "Partial / mismatches", groups.mismatch);
+    html += renderGroup("missing", "Missing / incorrect", groups.missing);
+    var unreviewed = student.perQuestion.filter(function(q){ return q.verdict === "unreviewed"; });
+    if(unreviewed.length){
+      html += renderGroup("mismatch", "Not yet reviewed", unreviewed.map(function(q){ return q; }));
+    }
+    area.innerHTML = html;
+
+    area.querySelectorAll(".compare-card").forEach(function(card){
+      var qnum = card.getAttribute("data-qnum");
+      var q = student.perQuestion.find(function(pq){ return pq.number === qnum; });
+      if(!q) return;
+      card.querySelector('[data-role="verdict"]').addEventListener("change", function(ev){
+        q.verdict = ev.target.value; q.aiGenerated = false;
+        if(q.verdict === "correct") q.deduction = 0;
+        else if(q.verdict === "incorrect") q.deduction = q.maxPoints;
+        afterGradeEdit(student);
+      });
+      card.querySelector('[data-role="deduction"]').addEventListener("input", function(ev){
+        q.deduction = clamp(Number(ev.target.value) || 0, 0, q.maxPoints);
+        q.aiGenerated = false;
+        afterGradeEdit(student, true);
+      });
+    });
+  }
+
+  function afterGradeEdit(student, skipFullRerender){
+    renderScoreSummary(student);
+    renderRosterControls();
+    renderFileTree();
+    persistStudent(student);
+    if(!skipFullRerender) renderComparisonArea(student);
+  }
+
+  function renderScoreSummary(student){
+    var scores = computeScores(student);
+    document.getElementById("scaledScoreValue").textContent = fmtNum(scores.scaled) + " / " + fmtNum(state.rubric.targetTotal);
+    document.getElementById("rawScoreValue").textContent = "raw " + fmtNum(scores.raw) + " / " + fmtNum(scores.total);
+    var mult = scores.total > 0 ? (state.rubric.targetTotal / scores.total) : 0;
+    document.getElementById("summaryFormulaNote").textContent =
+      fmtNum(scores.raw) + " × (" + fmtNum(state.rubric.targetTotal) + " ÷ " + fmtNum(scores.total) + ") = " + fmtNum(scores.scaled);
+  }
+
+  function renderRightColumn(){
+    var student = currentStudent();
+    if(!student){
+      document.getElementById("comparisonArea").innerHTML = '<div class="empty-note">Select a student to see the comparison.</div>';
+      document.getElementById("scaledScoreValue").textContent = "— / " + fmtNum(state.rubric.targetTotal);
+      document.getElementById("rawScoreValue").textContent = "raw — / " + fmtNum(rubricTotal());
+      document.getElementById("summaryFormulaNote").textContent = "";
+      document.getElementById("finalCommentBox").value = "";
+      return;
+    }
+    renderComparisonArea(student);
+    renderScoreSummary(student);
+    document.getElementById("finalCommentBox").value = student.finalComment || generateFinalComment(student);
+  }
+
+  async function runAiComparison(student){
+    if(!state.sample){ showToast("Set an Anthropic API key in Settings to use AI comparison.", ""); openSettingsPanel(); return; }
+    if(!state.rubric.questions.length){ showToast("Set up the rubric first.", "err"); return; }
+    if(!student.rawText || !student.rawText.trim()){
+      showToast("No extracted text for " + student.name + " yet — paste it in on the left first.", "err");
+      return;
+    }
+    var alreadyTouched = student.perQuestion.some(function(q){ return q.verdict !== "unreviewed" && !q.aiGenerated; });
+    if(alreadyTouched){
+      var proceed = await showConfirmDialog({
+        title: "Overwrite manual grading?",
+        message: "Some questions already have manual grading. Running the comparison again will overwrite those verdicts and deductions with new AI results.",
+        confirmLabel: "Overwrite",
+        danger: true
+      });
+      if(!proceed) return;
+    }
+
+    var thinkingEl = document.getElementById("aiThinking");
+    var btn = document.getElementById("aiCompareBtn");
+    thinkingEl.hidden = false; btn.disabled = true;
+    var ctl = new AbortController();
+    state.currentAiAbort = ctl;
+    document.getElementById("aiCancelBtn").onclick = function(ev){ ev.preventDefault(); ctl.abort(); };
+
+    try{
+      var rubricPayload = state.rubric.questions.map(function(q){
+        return { number: q.number, maxPoints: q.maxPoints, questionText: q.questionText, correctAnswer: q.correctAnswer };
+      });
+      var studentText = (student.rawText || "").slice(0, 40000);
+      var labText = (state.lab.rawText || "").slice(0, 8000);
+      var prompt = "You are assisting a teaching assistant grading a computer systems assignment.\n" +
+        (labText ? "Here is the lab/assignment document for context:\n" + labText + "\n\n" : "") +
+        "Below is the rubric (question number, max points, and the correct answer) and one student's full submission text.\n" +
+        "For every rubric question, find the student's corresponding answer, compare it to the correct answer, and judge it.\n" +
+        "Reply with ONLY a JSON object of this exact shape:\n" +
+        '{"perQuestion": [{"number": string, "verdict": "correct"|"partial"|"incorrect", "deduction": number, "comment": string}], "overallComment": string}\n' +
+        "Rules: deduction is 0 for correct, the full maxPoints for incorrect, and a partial value in between for partial credit. " +
+        "comment is one short sentence explaining the deduction (blank string if correct). Question numbers are STRINGS, exactly matching " +
+        "the rubric's numbering (e.g. \"5.1\", \"14.10\", \"14.12\" — never drop a trailing zero or treat these as arithmetic). " +
+        "Cover every question number exactly once.\n\n" +
+        "RUBRIC:\n" + JSON.stringify(rubricPayload) + "\n\n" +
+        "STUDENT SUBMISSION:\n" + studentText;
+
+      var data = await sampleJsonWithRetry(prompt, { modelTier: "default", signal: ctl.signal });
+      if(data && Array.isArray(data.perQuestion)){
+        var byNumber = {};
+        data.perQuestion.forEach(function(pq){ byNumber[String(pq.number)] = pq; });
+        student.perQuestion.forEach(function(q){
+          var s = byNumber[q.number];
+          if(!s) return;
+          q.verdict = ["correct","partial","incorrect"].indexOf(s.verdict) !== -1 ? s.verdict : "partial";
+          q.deduction = clamp(Number(s.deduction) || 0, 0, q.maxPoints);
+          q.comment = String(s.comment || "");
+          q.aiGenerated = true;
+        });
+        student.finalComment = generateFinalComment(student);
+        renderRightColumn();
+        renderFileTree();
+        persistStudent(student);
+        showToast("Comparison complete — review and adjust as needed.", "ok");
+      }else{
+        showToast("AI reply didn't include per-question results — try again.", "err");
+      }
+    }catch(e){
+      reportSampleError(e, "comparing " + student.name);
+    }finally{
+      thinkingEl.hidden = true; btn.disabled = false;
+      state.currentAiAbort = null;
+    }
+  }
+
+  /* ============================== wiring ============================== */
+  function wireDropzone(id, inputId, onFile){
+    var zone = document.getElementById(id);
+    var input = document.getElementById(inputId);
+    zone.addEventListener("click", function(ev){ if(ev.target.tagName !== "INPUT") input.click(); });
+    input.addEventListener("change", function(ev){ onFile(ev.target.files[0]); ev.target.value = ""; });
+    ["dragover","dragleave","drop"].forEach(function(evt){
+      zone.addEventListener(evt, function(ev){
+        ev.preventDefault();
+        zone.classList.toggle("drag", evt === "dragover");
+        if(evt === "drop" && ev.dataTransfer.files[0]) onFile(ev.dataTransfer.files[0]);
+      });
+    });
+  }
+
+  function wireEvents(){
+    document.getElementById("newAssignmentBtn").addEventListener("click", startNewAssignment);
+
+    wireDropzone("labDropzone", "labFileInput", handleLabFile);
+    document.getElementById("labReuploadBtn").addEventListener("click", function(){
+      state.lab = { loaded:false, sourceName:"", kind:null, rawText:"", arrayBuffer:null, pageCount:0 };
+      renderLabCard();
+      setLabUrlStatus("", "");
+      document.getElementById("labPasteArea").hidden = true;
+      // Actually clear the saved lab doc too — otherwise it silently comes back on next reload
+      // if the user clicks Replace but never finishes uploading a new one.
+      if(state.storageOk){ idbDelete("config", "lab").catch(function(){ /* ignore */ }); }
+    });
+    document.getElementById("labUrlFetchBtn").addEventListener("click", handleLabUrlFetch);
+    document.getElementById("labUrlInput").addEventListener("keydown", function(ev){
+      if(ev.key === "Enter"){ ev.preventDefault(); handleLabUrlFetch(); }
+    });
+    document.getElementById("labPasteToggleBtn").addEventListener("click", function(){
+      var area = document.getElementById("labPasteArea");
+      area.hidden = !area.hidden;
+      if(!area.hidden) document.getElementById("labPasteText").focus();
+    });
+    document.getElementById("labPasteSaveBtn").addEventListener("click", function(){
+      var text = document.getElementById("labPasteText").value;
+      if(!text.trim()){ showToast("Paste some text first.", "err"); return; }
+      var url = document.getElementById("labUrlInput").value.trim();
+      setLabFromText(url || "Pasted lab document", text);
+      setLabUrlStatus("", "");
+      showToast("Lab document saved from pasted text.", "ok");
+    });
+
+    wireDropzone("rubricDropzone", "rubricFileInput", handleRubricFile);
+    document.getElementById("rubricReuploadBtn").addEventListener("click", function(){
+      state.rubric.loaded = false; state.rubric.rawText = ""; state.rubric.sourceName = "";
+      state.rubric.arrayBuffer = null; state.rubric.questions = [];
+      renderRubricCard();
+      // Actually clear the saved rubric too — otherwise it silently comes back on next reload
+      // if the user clicks Replace but never finishes uploading a new one.
+      if(state.storageOk){ idbDelete("config", "rubric").catch(function(){ /* ignore */ }); }
+    });
+    document.getElementById("rubricReextractBtn").addEventListener("click", runAiRubricExtraction);
+    document.getElementById("rubricAddRowBtn").addEventListener("click", function(){
+      state.rubric.questions.push(newQuestionRow({ number: String(state.rubric.questions.length + 1) }));
+      renderRubricCard();
+    });
+    document.getElementById("targetTotalInput").addEventListener("input", function(ev){
+      state.rubric.targetTotal = Number(ev.target.value) || 0;
+      updateRubricTotals();
+      persistRubric();
+      if(currentStudent()) renderScoreSummary(currentStudent());
+      renderRosterControls();
+    });
+
+    wireDropzone("zipDropzone", "zipFileInput", handleZipFile);
+    document.getElementById("filesInput").addEventListener("change", function(ev){ handleIndividualFiles(ev.target.files); ev.target.value = ""; });
+    document.getElementById("filesDropzone").addEventListener("click", function(ev){
+      if(ev.target.tagName !== "INPUT") document.getElementById("filesInput").click();
+    });
+    ["dragover","dragleave","drop"].forEach(function(evt){
+      document.getElementById("filesDropzone").addEventListener(evt, function(ev){
+        ev.preventDefault();
+        this.classList.toggle("drag", evt === "dragover");
+        if(evt === "drop" && ev.dataTransfer.files.length) handleIndividualFiles(ev.dataTransfer.files);
+      });
+    });
+
+    document.getElementById("treeSearchInput").addEventListener("input", function(ev){
+      state.treeFilter = ev.target.value;
+      renderFileTree();
+    });
+
+    document.getElementById("studentSelect").addEventListener("change", function(ev){ selectStudent(ev.target.value); });
+    document.getElementById("rosterSearchInput").addEventListener("input", function(ev){
+      state.rosterFilter = ev.target.value;
+      renderRosterControls();
+      // A native <select> only fires "change" when the user picks a DIFFERENT option than
+      // what's already showing. Once a search narrows the list to exactly one student, that
+      // one option is already selected by default — clicking it fires no event at all, so
+      // without this the center/right panels silently never update to show them. Jump there
+      // directly instead of waiting for an event that will never come.
+      var matches = currentRosterMatches();
+      if(state.rosterFilter.trim() && matches.length === 1 && matches[0].id !== state.currentStudentId){
+        selectStudent(matches[0].id);
+      }
+    });
+    document.getElementById("rosterSearchInput").addEventListener("keydown", function(ev){
+      if(ev.key !== "Enter") return;
+      var matches = currentRosterMatches();
+      if(matches.length) selectStudent(matches[0].id);
+    });
+    document.getElementById("prevStudentBtn").addEventListener("click", function(){
+      clearRosterFilter(); renderRosterControls();
+      if(!state.students.length) return;
+      var idx = state.students.findIndex(function(s){ return s.id === state.currentStudentId; });
+      var next = state.students[(idx - 1 + state.students.length) % state.students.length];
+      if(next) selectStudent(next.id);
+    });
+    document.getElementById("nextStudentBtn").addEventListener("click", function(){
+      clearRosterFilter(); renderRosterControls();
+      if(!state.students.length) return;
+      var idx = state.students.findIndex(function(s){ return s.id === state.currentStudentId; });
+      var next = state.students[(idx + 1) % state.students.length];
+      if(next) selectStudent(next.id);
+    });
+
+    document.getElementById("aiCompareBtn").addEventListener("click", function(){
+      var student = currentStudent();
+      if(!student){ showToast("Select a student first.", "err"); return; }
+      runAiComparison(student);
+    });
+    document.getElementById("markGradedBtn").addEventListener("click", function(){
+      var student = currentStudent();
+      if(!student) return;
+      student.gradedAt = nowISO();
+      student.finalComment = document.getElementById("finalCommentBox").value;
+      persistStudent(student);
+      renderRosterControls();
+      renderFileTree();
+      renderCenterColumn();
+      showToast(student.name + " marked as graded.", "ok");
+    });
+    document.getElementById("regenerateCommentBtn").addEventListener("click", function(){
+      var student = currentStudent();
+      if(!student) return;
+      student.finalComment = generateFinalComment(student);
+      document.getElementById("finalCommentBox").value = student.finalComment;
+      persistStudent(student);
+    });
+    document.getElementById("finalCommentBox").addEventListener("input", function(ev){
+      var student = currentStudent();
+      if(!student) return;
+      student.finalComment = ev.target.value;
+      persistStudent(student);
+    });
+    document.getElementById("copyCommentBtn").addEventListener("click", async function(){
+      var val = document.getElementById("finalCommentBox").value;
+      try{
+        await navigator.clipboard.writeText(val);
+        showToast("Comment copied.", "ok");
+      }catch(e){
+        showToast("Couldn't copy automatically — select the text and copy manually.", "err");
+      }
+    });
+
+    /* ---- settings panel (standalone-only) ---- */
+    document.getElementById("settingsToggleBtn").addEventListener("click", function(){
+      var panel = document.getElementById("settingsPanel");
+      panel.hidden = !panel.hidden;
+    });
+    document.getElementById("settingsCloseBtn").addEventListener("click", function(){
+      document.getElementById("settingsPanel").hidden = true;
+    });
+    var apiKeyInput = document.getElementById("apiKeyInput");
+    var modelSelect = document.getElementById("modelSelect");
+    apiKeyInput.value = state.settings.apiKey;
+    modelSelect.value = state.settings.model;
+    document.getElementById("toggleKeyVisibilityBtn").addEventListener("click", function(ev){
+      var showing = apiKeyInput.type === "text";
+      apiKeyInput.type = showing ? "password" : "text";
+      ev.target.textContent = showing ? "Show" : "Hide";
+    });
+    document.getElementById("saveApiKeyBtn").addEventListener("click", function(){
+      var key = apiKeyInput.value.trim();
+      var model = modelSelect.value;
+      try{
+        if(key) window.localStorage.setItem(LS_KEYS.apiKey, key); else window.localStorage.removeItem(LS_KEYS.apiKey);
+        window.localStorage.setItem(LS_KEYS.model, model);
+      }catch(e){
+        showToast("Couldn't save settings to this browser (" + (e && e.name || "storage error") + ").", "err");
+        return;
+      }
+      state.settings.apiKey = key;
+      state.settings.model = model;
+      state.sample = key ? { json: askClaudeJson } : null;
+      document.getElementById("apiKeyStatus").textContent = key ? "Saved." : "Cleared — AI suggestions are off.";
+      var aiBtn = document.getElementById("aiCompareBtn");
+      if(aiBtn) aiBtn.title = state.sample ? "" : "AI assistance isn't available — set an API key in Settings";
+      showToast(key ? "API key saved." : "API key cleared.", "ok");
+    });
+    document.getElementById("clearApiKeyBtn").addEventListener("click", function(){
+      apiKeyInput.value = "";
+      try{ window.localStorage.removeItem(LS_KEYS.apiKey); }catch(e){ /* ignore */ }
+      state.settings.apiKey = "";
+      state.sample = null;
+      document.getElementById("apiKeyStatus").textContent = "Cleared — AI suggestions are off.";
+      var aiBtn2 = document.getElementById("aiCompareBtn");
+      if(aiBtn2) aiBtn2.title = "AI assistance isn't available — set an API key in Settings";
+      showToast("API key cleared.", "ok");
+    });
+    document.getElementById("resetAllBtn").addEventListener("click", async function(){
+      var ok = await showConfirmDialog({
+        title: "Erase all saved data?",
+        message: "This permanently deletes the lab document, rubric, and every submission — including files, extracted text, grades, and comments — from this browser's storage on this device. This can't be undone.",
+        confirmLabel: "Erase everything",
+        danger: true
+      });
+      if(!ok) return;
+      await clearPersistedAssignment();
+      location.reload();
+    });
+  }
+
+  /* ============================== init ============================== */
+  async function init(){
+    loadSettings();
+    wireEvents();
+    initPdfWorker();
+    renderLabCard();
+    renderRubricCard();
+    renderFileTree();
+    renderRosterControls();
+    renderCenterColumn();
+    renderRightColumn();
+
+    try{
+      await openIdb();
+      state.storageOk = true;
+    }catch(e){
+      state.storageOk = false;
+    }
+
+    if(state.storageOk){
+      setSaveIndicator("ok", "Progress + files save to this browser automatically");
+      await loadPersistedState();
+      renderLabCard();
+      renderRubricCard();
+      renderFileTree();
+      renderRosterControls();
+      if(!state.currentStudentId && state.students.length) state.currentStudentId = state.students[0].id;
+      renderCenterColumn();
+      renderRightColumn();
+    }else{
+      setSaveIndicator("off", "This browser can't save between sessions (private/incognito mode blocks this)");
+    }
+
+    var aiBtn = document.getElementById("aiCompareBtn");
+    if(!state.sample && aiBtn){
+      aiBtn.title = "AI assistance isn't available — set an API key in Settings";
+    }
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", init);
+  }else{
+    init();
+  }
+})();
+</script>
+</body>
+</html>
