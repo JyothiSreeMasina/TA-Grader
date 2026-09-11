@@ -1477,7 +1477,7 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 4096, responseMimeType: "application/json" }
+          generationConfig: { maxOutputTokens: 4096 }
         })
       });
     }catch(networkErr){
@@ -1535,7 +1535,7 @@
       rate_limited: providerLabel + " API is rate-limiting this key right now — try again shortly.",
       network_error: "Couldn't reach the " + providerLabel + " API — check your connection.",
       bad_request: (e && e.message) ? e.message : (providerLabel + " API rejected that request."),
-      server_error: providerLabel + " API had a server error — try again.",
+      server_error: (e && e.message) ? e.message : (providerLabel + " API had a server error — try again."),
       upstream_error: (e && e.message) ? e.message : "AI request failed — try again.",
       invalid_json: "AI reply wasn't valid JSON — try again.",
       empty_completion: "AI returned nothing usable — try again.",
@@ -1550,7 +1550,7 @@
   // A handful of failure codes are plausibly transient (a momentary upstream hiccup), so retry
   // once, after a short pause, before bothering the user — rather than looping or giving up
   // on the first blip.
-  var RETRYABLE_SAMPLE_CODES = ["upstream_error", "store_unavailable", "rate_limited"];
+  var RETRYABLE_SAMPLE_CODES = ["upstream_error", "store_unavailable", "rate_limited", "server_error"];
   function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
   async function sampleJsonWithRetry(prompt, opts){
     try{
