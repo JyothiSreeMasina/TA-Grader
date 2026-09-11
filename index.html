@@ -1440,7 +1440,7 @@
       else if(response.status === 429) code = "rate_limited";
       else if(response.status === 400) code = "bad_request";
       else if(response.status >= 500) code = "server_error";
-      var eS = new Error(apiMsg || ("Request failed with status " + response.status));
+      var eS = new Error("HTTP " + response.status + (apiMsg ? ": " + apiMsg : " (no error detail returned)"));
       eS.code = code;
       throw eS;
     }
@@ -1490,7 +1490,7 @@
       else if(response.status === 429) code = "rate_limited";
       else if(response.status === 400) code = "bad_request";
       else if(response.status >= 500) code = "server_error";
-      var eS = new Error(apiMsg || ("Request failed with status " + response.status));
+      var eS = new Error("HTTP " + response.status + (apiMsg ? ": " + apiMsg : " (no error detail returned)"));
       eS.code = code;
       throw eS;
     }
@@ -1530,7 +1530,7 @@
       network_error: "Couldn't reach the " + providerLabel + " API — check your connection.",
       bad_request: (e && e.message) ? e.message : (providerLabel + " API rejected that request."),
       server_error: providerLabel + " API had a server error — try again.",
-      upstream_error: "AI request failed — try again.",
+      upstream_error: (e && e.message) ? e.message : "AI request failed — try again.",
       invalid_json: "AI reply wasn't valid JSON — try again.",
       empty_completion: "AI returned nothing usable — try again.",
       prompt_too_large: "That submission is too long for one AI request — you'll need to grade it manually."
