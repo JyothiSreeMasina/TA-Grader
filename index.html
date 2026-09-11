@@ -1477,7 +1477,10 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 4096 }
+          // Gemini's "thinking" tokens are billed out of this same budget before the actual answer
+          // is written, and a rubric with many sub-questions produces a sizeable JSON reply — 4096
+          // was getting silently truncated mid-JSON. Give it much more headroom.
+          generationConfig: { maxOutputTokens: 16384 }
         })
       });
     }catch(networkErr){
@@ -1502,6 +1505,10 @@
     }
     var data = await response.json();
     var candidate = (data.candidates || [])[0];
+    if(candidate && candidate.finishReason === "MAX_TOKENS"){
+      var eTrunc = new Error("Gemini's reply was cut off before it finished (too much to extract at once) — try again, or split this into a smaller rubric/submission.");
+      eTrunc.code = "upstream_error"; throw eTrunc;
+    }
     if(candidate && candidate.finishReason === "SAFETY"){
       var eSafe = new Error("Blocked by Gemini safety filters"); eSafe.code = "upstream_error"; throw eSafe;
     }
