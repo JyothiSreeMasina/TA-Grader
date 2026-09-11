@@ -372,14 +372,20 @@
     <h2>AI &amp; storage settings</h2>
     <button class="btn btn-quiet btn-xs" id="settingsCloseBtn">Close</button>
   </div>
-  <p class="settings-hint">This standalone file has no built-in AI or cloud save — everything runs in this browser. Grading progress and files are saved to this device automatically (via IndexedDB); AI suggestions need your own Anthropic API key below.</p>
+  <p class="settings-hint">This standalone file has no built-in AI or cloud save — everything runs in this browser. Grading progress and files are saved to this device automatically (via IndexedDB); AI suggestions need an API key from either Anthropic (paid) or Google Gemini (has a free tier) below.</p>
   <div class="settings-grid">
     <div class="settings-field">
-      <label for="apiKeyInput">Anthropic API key (optional — enables AI suggestions)</label>
+      <label for="providerSelect">AI provider</label>
+      <select id="providerSelect" style="margin-bottom:10px;">
+        <option value="anthropic">Anthropic (Claude) — paid, very low cost</option>
+        <option value="gemini">Google (Gemini) — has a free tier</option>
+      </select>
+      <label for="apiKeyInput" id="apiKeyLabel">Anthropic API key (optional — enables AI suggestions)</label>
       <div class="settings-row">
         <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
         <button class="btn btn-xs" id="toggleKeyVisibilityBtn" type="button">Show</button>
       </div>
+      <p class="settings-hint" id="getKeyHint" style="margin-top:4px;">Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> (Billing required beyond any starter credit).</p>
       <div class="settings-row" style="margin-top:8px;">
         <label for="modelSelect" style="margin:0;font-size:11.5px;color:var(--ink-soft);">Model</label>
         <select id="modelSelect">
@@ -393,7 +399,7 @@
         <button class="btn btn-xs btn-quiet" id="clearApiKeyBtn">Clear key</button>
         <span class="settings-hint" id="apiKeyStatus" style="margin:0;"></span>
       </div>
-      <p class="settings-warning">Your key is stored only in this browser (localStorage) and sent directly to Anthropic's API — never anywhere else — when you use AI suggestions. Don't enter it on a shared or public computer; anyone with access to this browser's dev tools could read it.</p>
+      <p class="settings-warning" id="apiKeyWarning">Your key is stored only in this browser (localStorage) and sent directly to Anthropic's API — never anywhere else — when you use AI suggestions. Don't enter it on a shared or public computer; anyone with access to this browser's dev tools could read it.</p>
     </div>
     <div class="settings-field">
       <label>Local storage</label>
@@ -706,7 +712,7 @@
   var state = {
     storageOk: false, // whether IndexedDB is usable on this device
     sample: null,     // {json: fn} once an API key is configured, else null
-    settings: { apiKey: "", model: "claude-sonnet-5" },
+    settings: { provider: "anthropic", anthropicKey: "", anthropicModel: "claude-sonnet-5", geminiKey: "", geminiModel: "gemini-2.5-flash" },
     lab: { loaded:false, sourceName:"", kind:null, rawText:"", arrayBuffer:null, pageCount:0 },
     rubric: {
       loaded:false, locked:false, sourceName:"", kind:null, rawText:"",
@@ -1232,7 +1238,7 @@
       }else if(state.sample){
         runAiRubricExtraction();
       }else{
-        showToast("Rubric loaded. Add your questions below, or set an Anthropic API key in Settings to auto-extract them.", "");
+        showToast("Rubric loaded. Add your questions below, or set an API key in Settings to auto-extract them.", "");
       }
     }catch(e){
       showToast("Couldn't read that rubric (" + (e && e.message ? e.message : "unknown error") + ").", "err");
@@ -1240,7 +1246,7 @@
   }
 
   async function runAiRubricExtraction(){
-    if(!state.sample){ showToast("Set an Anthropic API key in Settings to use AI extraction — add each question's correct answer manually below for now.", ""); return; }
+    if(!state.sample){ showToast("Set an API key in Settings to use AI extraction — add each question's correct answer manually below for now.", ""); return; }
     var thinkingEl = document.getElementById("rubricThinking");
     thinkingEl.hidden = false;
     document.getElementById("rubricReextractBtn").disabled = true;
@@ -1343,16 +1349,36 @@
     }
   }
 
-  /* ============================== settings (API key + model, localStorage) ============================== */
+  /* ============================== settings (provider + API key + model, localStorage) ============================== */
   var LS_PREFIX = "gradingBench.";
-  var LS_KEYS = { apiKey: LS_PREFIX + "apiKey", model: LS_PREFIX + "model" };
+  var LS_KEYS = {
+    provider: LS_PREFIX + "provider",
+    anthropicKey: LS_PREFIX + "apiKey",       // kept as the original key name for backward compatibility
+    anthropicModel: LS_PREFIX + "model",      // with earlier versions of this file
+    geminiKey: LS_PREFIX + "geminiApiKey",
+    geminiModel: LS_PREFIX + "geminiModel"
+  };
+
+  function currentProviderInfo(){
+    var provider = state.settings.provider === "gemini" ? "gemini" : "anthropic";
+    return {
+      provider: provider,
+      key: provider === "gemini" ? state.settings.geminiKey : state.settings.anthropicKey,
+      model: provider === "gemini" ? state.settings.geminiModel : state.settings.anthropicModel,
+      label: provider === "gemini" ? "Google Gemini" : "Anthropic"
+    };
+  }
 
   function loadSettings(){
     try{
-      state.settings.apiKey = window.localStorage.getItem(LS_KEYS.apiKey) || "";
-      state.settings.model = window.localStorage.getItem(LS_KEYS.model) || "claude-sonnet-5";
+      state.settings.provider = window.localStorage.getItem(LS_KEYS.provider) || "anthropic";
+      state.settings.anthropicKey = window.localStorage.getItem(LS_KEYS.anthropicKey) || "";
+      state.settings.anthropicModel = window.localStorage.getItem(LS_KEYS.anthropicModel) || "claude-sonnet-5";
+      state.settings.geminiKey = window.localStorage.getItem(LS_KEYS.geminiKey) || "";
+      state.settings.geminiModel = window.localStorage.getItem(LS_KEYS.geminiModel) || "gemini-2.5-flash";
     }catch(e){ /* defaults stand */ }
-    state.sample = state.settings.apiKey ? { json: askClaudeJson } : null;
+    var active = currentProviderInfo();
+    state.sample = active.key ? { json: active.provider === "gemini" ? askGeminiJson : askClaudeJson } : null;
   }
 
   /* ============================== direct Anthropic API calls (bring-your-own-key) ============================== */
@@ -1378,7 +1404,8 @@
 
   async function askClaudeJson(prompt, opts){
     opts = opts || {};
-    if(!state.settings.apiKey){
+    var apiKey = state.settings.anthropicKey;
+    if(!apiKey){
       var e0 = new Error("No API key configured"); e0.code = "no_key"; throw e0;
     }
     var response;
@@ -1388,12 +1415,12 @@
         signal: opts.signal,
         headers: {
           "content-type": "application/json",
-          "x-api-key": state.settings.apiKey,
+          "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true"
         },
         body: JSON.stringify({
-          model: state.settings.model || "claude-sonnet-5",
+          model: state.settings.anthropicModel || "claude-sonnet-5",
           max_tokens: 4096,
           messages: [{ role: "user", content: prompt }]
         })
@@ -1425,28 +1452,84 @@
     return parseJsonLoose(text);
   }
 
+  /* ============================== direct Google Gemini API calls (bring-your-own-key, free tier) ============================== */
+  // Same idea as askClaudeJson above, but talking to Google's Gemini API instead — this is the
+  // free-tier-friendly alternative to Anthropic for people who don't want to attach billing.
+  async function askGeminiJson(prompt, opts){
+    opts = opts || {};
+    var apiKey = state.settings.geminiKey;
+    if(!apiKey){
+      var e0 = new Error("No API key configured"); e0.code = "no_key"; throw e0;
+    }
+    var model = state.settings.geminiModel || "gemini-2.5-flash";
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey);
+    var response;
+    try{
+      response = await fetch(url, {
+        method: "POST",
+        signal: opts.signal,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 4096, responseMimeType: "application/json" }
+        })
+      });
+    }catch(networkErr){
+      if(networkErr && networkErr.name === "AbortError"){
+        var eA = new Error("cancelled"); eA.code = "cancelled"; throw eA;
+      }
+      var eN = new Error("Network request failed"); eN.code = "network_error"; throw eN;
+    }
+    if(!response.ok){
+      var bodyText = await response.text().catch(function(){ return ""; });
+      var apiMsg = "";
+      try{ apiMsg = (JSON.parse(bodyText).error || {}).message || ""; }catch(e){ /* ignore */ }
+      var code = "upstream_error";
+      if(response.status === 400 && /api key not valid/i.test(apiMsg)) code = "invalid_key";
+      else if(response.status === 401 || response.status === 403) code = "invalid_key";
+      else if(response.status === 429) code = "rate_limited";
+      else if(response.status === 400) code = "bad_request";
+      else if(response.status >= 500) code = "server_error";
+      var eS = new Error(apiMsg || ("Request failed with status " + response.status));
+      eS.code = code;
+      throw eS;
+    }
+    var data = await response.json();
+    var candidate = (data.candidates || [])[0];
+    if(candidate && candidate.finishReason === "SAFETY"){
+      var eSafe = new Error("Blocked by Gemini safety filters"); eSafe.code = "upstream_error"; throw eSafe;
+    }
+    var parts = candidate && candidate.content && candidate.content.parts || [];
+    var text = parts.map(function(part){ return part.text || ""; }).join("");
+    if(!text.trim()){
+      var eE = new Error("Empty response"); eE.code = "empty_completion"; throw eE;
+    }
+    return parseJsonLoose(text);
+  }
+
   function openSettingsPanel(){
     document.getElementById("settingsPanel").hidden = false;
   }
 
   function reportSampleError(e, contextLabel){
     var code = e && e.code || "upstream_error";
+    var providerLabel = currentProviderInfo().label;
     if(code === "cancelled") return;
     if(code === "no_key"){
-      showToast("Set your Anthropic API key in Settings to use AI suggestions.", "");
+      showToast("Set an API key (Anthropic or Gemini) in Settings to use AI suggestions.", "");
       openSettingsPanel();
       return;
     }
     if(code === "invalid_key"){
-      showToast("Anthropic rejected that API key — check it in Settings.", "err");
+      showToast(providerLabel + " rejected that API key — check it in Settings.", "err");
       openSettingsPanel();
       return;
     }
     var msg = {
-      rate_limited: "Anthropic API is rate-limiting this key right now — try again shortly.",
-      network_error: "Couldn't reach the Anthropic API — check your connection.",
-      bad_request: (e && e.message) ? e.message : "Anthropic API rejected that request.",
-      server_error: "Anthropic API had a server error — try again.",
+      rate_limited: providerLabel + " API is rate-limiting this key right now — try again shortly.",
+      network_error: "Couldn't reach the " + providerLabel + " API — check your connection.",
+      bad_request: (e && e.message) ? e.message : (providerLabel + " API rejected that request."),
+      server_error: providerLabel + " API had a server error — try again.",
       upstream_error: "AI request failed — try again.",
       invalid_json: "AI reply wasn't valid JSON — try again.",
       empty_completion: "AI returned nothing usable — try again.",
@@ -1904,7 +1987,7 @@
   }
 
   async function runAiComparison(student){
-    if(!state.sample){ showToast("Set an Anthropic API key in Settings to use AI comparison.", ""); openSettingsPanel(); return; }
+    if(!state.sample){ showToast("Set an API key in Settings to use AI comparison.", ""); openSettingsPanel(); return; }
     if(!state.rubric.questions.length){ showToast("Set up the rubric first.", "err"); return; }
     if(!student.rawText || !student.rawText.trim()){
       showToast("No extracted text for " + student.name + " yet — paste it in on the left first.", "err");
@@ -2142,41 +2225,103 @@
     document.getElementById("settingsCloseBtn").addEventListener("click", function(){
       document.getElementById("settingsPanel").hidden = true;
     });
+    var providerSelect = document.getElementById("providerSelect");
     var apiKeyInput = document.getElementById("apiKeyInput");
     var modelSelect = document.getElementById("modelSelect");
-    apiKeyInput.value = state.settings.apiKey;
-    modelSelect.value = state.settings.model;
+    var apiKeyLabel = document.getElementById("apiKeyLabel");
+    var apiKeyWarning = document.getElementById("apiKeyWarning");
+    var getKeyHint = document.getElementById("getKeyHint");
+
+    var GEMINI_MODEL_OPTIONS = [
+      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (balanced, recommended, free tier)" },
+      { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite (fastest, cheapest)" },
+      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (most capable, tighter free limits)" }
+    ];
+    var ANTHROPIC_MODEL_OPTIONS = [
+      { value: "claude-sonnet-5", label: "Claude Sonnet 5 (balanced, recommended)" },
+      { value: "claude-opus-5", label: "Claude Opus 5 (most capable, slower/pricier)" },
+      { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (fastest, cheapest)" }
+    ];
+
+    function populateModelSelect(provider, selectedValue){
+      var opts = provider === "gemini" ? GEMINI_MODEL_OPTIONS : ANTHROPIC_MODEL_OPTIONS;
+      modelSelect.innerHTML = opts.map(function(o){ return '<option value="' + o.value + '">' + o.label + '</option>'; }).join("");
+      modelSelect.value = selectedValue || opts[0].value;
+    }
+
+    function reflectProviderInUi(provider){
+      if(provider === "gemini"){
+        apiKeyLabel.textContent = "Gemini API key (optional — enables AI suggestions, free tier available)";
+        apiKeyInput.placeholder = "AIza...";
+        apiKeyInput.value = state.settings.geminiKey;
+        populateModelSelect("gemini", state.settings.geminiModel);
+        apiKeyWarning.textContent = "Your key is stored only in this browser (localStorage) and sent directly to Google's Gemini API — never anywhere else — when you use AI suggestions. Don't enter it on a shared or public computer; anyone with access to this browser's dev tools could read it.";
+        getKeyHint.innerHTML = 'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (no credit card needed for the free tier).';
+      }else{
+        apiKeyLabel.textContent = "Anthropic API key (optional — enables AI suggestions)";
+        apiKeyInput.placeholder = "sk-ant-...";
+        apiKeyInput.value = state.settings.anthropicKey;
+        populateModelSelect("anthropic", state.settings.anthropicModel);
+        apiKeyWarning.textContent = "Your key is stored only in this browser (localStorage) and sent directly to Anthropic's API — never anywhere else — when you use AI suggestions. Don't enter it on a shared or public computer; anyone with access to this browser's dev tools could read it.";
+        getKeyHint.innerHTML = 'Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> (billing required beyond any starter credit).';
+      }
+      document.getElementById("apiKeyStatus").textContent = "";
+    }
+
+    providerSelect.value = state.settings.provider;
+    reflectProviderInUi(state.settings.provider);
+    providerSelect.addEventListener("change", function(){
+      reflectProviderInUi(providerSelect.value);
+    });
+
     document.getElementById("toggleKeyVisibilityBtn").addEventListener("click", function(ev){
       var showing = apiKeyInput.type === "text";
       apiKeyInput.type = showing ? "password" : "text";
       ev.target.textContent = showing ? "Show" : "Hide";
     });
+
+    function updateAiBtnTitle(){
+      var aiBtn = document.getElementById("aiCompareBtn");
+      if(aiBtn) aiBtn.title = state.sample ? "" : "AI assistance isn't available — set an API key in Settings";
+    }
+
     document.getElementById("saveApiKeyBtn").addEventListener("click", function(){
+      var provider = providerSelect.value === "gemini" ? "gemini" : "anthropic";
       var key = apiKeyInput.value.trim();
       var model = modelSelect.value;
       try{
-        if(key) window.localStorage.setItem(LS_KEYS.apiKey, key); else window.localStorage.removeItem(LS_KEYS.apiKey);
-        window.localStorage.setItem(LS_KEYS.model, model);
+        window.localStorage.setItem(LS_KEYS.provider, provider);
+        if(provider === "gemini"){
+          if(key) window.localStorage.setItem(LS_KEYS.geminiKey, key); else window.localStorage.removeItem(LS_KEYS.geminiKey);
+          window.localStorage.setItem(LS_KEYS.geminiModel, model);
+        }else{
+          if(key) window.localStorage.setItem(LS_KEYS.anthropicKey, key); else window.localStorage.removeItem(LS_KEYS.anthropicKey);
+          window.localStorage.setItem(LS_KEYS.anthropicModel, model);
+        }
       }catch(e){
         showToast("Couldn't save settings to this browser (" + (e && e.name || "storage error") + ").", "err");
         return;
       }
-      state.settings.apiKey = key;
-      state.settings.model = model;
-      state.sample = key ? { json: askClaudeJson } : null;
+      state.settings.provider = provider;
+      if(provider === "gemini"){ state.settings.geminiKey = key; state.settings.geminiModel = model; }
+      else{ state.settings.anthropicKey = key; state.settings.anthropicModel = model; }
+      var active = currentProviderInfo();
+      state.sample = active.key ? { json: active.provider === "gemini" ? askGeminiJson : askClaudeJson } : null;
       document.getElementById("apiKeyStatus").textContent = key ? "Saved." : "Cleared — AI suggestions are off.";
-      var aiBtn = document.getElementById("aiCompareBtn");
-      if(aiBtn) aiBtn.title = state.sample ? "" : "AI assistance isn't available — set an API key in Settings";
+      updateAiBtnTitle();
       showToast(key ? "API key saved." : "API key cleared.", "ok");
     });
     document.getElementById("clearApiKeyBtn").addEventListener("click", function(){
+      var provider = providerSelect.value === "gemini" ? "gemini" : "anthropic";
       apiKeyInput.value = "";
-      try{ window.localStorage.removeItem(LS_KEYS.apiKey); }catch(e){ /* ignore */ }
-      state.settings.apiKey = "";
-      state.sample = null;
+      try{
+        window.localStorage.removeItem(provider === "gemini" ? LS_KEYS.geminiKey : LS_KEYS.anthropicKey);
+      }catch(e){ /* ignore */ }
+      if(provider === "gemini") state.settings.geminiKey = ""; else state.settings.anthropicKey = "";
+      var active = currentProviderInfo();
+      state.sample = active.key ? { json: active.provider === "gemini" ? askGeminiJson : askClaudeJson } : null;
       document.getElementById("apiKeyStatus").textContent = "Cleared — AI suggestions are off.";
-      var aiBtn2 = document.getElementById("aiCompareBtn");
-      if(aiBtn2) aiBtn2.title = "AI assistance isn't available — set an API key in Settings";
+      updateAiBtnTitle();
       showToast("API key cleared.", "ok");
     });
     document.getElementById("resetAllBtn").addEventListener("click", async function(){
@@ -2240,5 +2385,3 @@
 </script>
 </body>
 </html>
-
-
